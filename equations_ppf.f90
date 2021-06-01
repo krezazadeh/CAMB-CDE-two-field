@@ -233,10 +233,12 @@ real(dl) :: grhov_t
 
 real(dl) :: grhoa20,dtauda0,H0dtauda
 
-real(16) :: Omegam0,Omegar0
-common /densityparameters/ Omegam0,Omegar0
-
+real(16) :: Omegam0,Omegar0,rs_matter,rs_rad,ai_new
 real(16) :: rhomtinitial,rhortinitial,lambdaphit,lambdachit,phitinitial,chitinitial
+
+common /densityparameters/ Omegam0,Omegar0,aitoa0approx 
+common /inputparametersofHta/ rhomtinitial,rhortinitial,lambdaphit,lambdachit, &
+            & phitinitial,chitinitial,rs_matter,rs_rad,ai_new
 
 real(16) :: Hta2,Hta2LCDM
 
@@ -325,17 +327,17 @@ end if
 
 ! H0inMpcinsec = (CP%H0)*1.0d3/c
 
-Omegam0 = real((grhoc + grhob)/(3.0d0*H0inMpcinsec**2),16)
-Omegar0 = real((grhog + grhornomass)/(3.0d0*H0inMpcinsec**2),16)
+!Omegam0 = real((grhoc + grhob)/(3.0d0*H0inMpcinsec**2),16)
+!Omegar0 = real((grhog + grhornomass)/(3.0d0*H0inMpcinsec**2),16)
 
 ! write(*,*) "Omegam0 = ",Omegam0
 ! write(*,*) "Omegar0 = ",Omegar0
 
-aitoa0approx = 1.0q-5
+!aitoa0approx = 1.0q-5
 
-rhomtinitial = 3.0q0*Omegam0*aitoa0approx**(-3.0q0)
-rhortinitial = 3.0q0*Omegar0*aitoa0approx**(-4.0q0)
-
+!rhomtinitial = 3.0q0*Omegam0*aitoa0approx**(-3.0q0)
+!rhortinitial = 3.0q0*Omegar0*aitoa0approx**(-4.0q0)
+!write(*,*) rhomtinitial
 ! var1 = myparameter1
 ! var2 = myparameter2
 ! var3 = 10.0d0*myparameter3
@@ -404,14 +406,16 @@ implicit none
 
 real(16) :: ainput,rhomtinitialinput,rhortinitialinput,lambdaphitinput, &
             &   lambdachitinput,phitinitialinput,chitinitialinput
-real(16) :: Hta2
+real(16) :: Hta2,aitoa0approx
 
 real(16) :: Omegam0,Omegar0
-common /densityparameters/ Omegam0,Omegar0
+common /densityparameters/ Omegam0,Omegar0,aitoa0approx 
 
 real(16) :: rhomtinitial,rhortinitial,lambdaphit,lambdachit,phitinitial,chitinitial
+real(16) :: rs_matter,rs_rad,ai_new
 common /inputparametersofHta/ rhomtinitial,rhortinitial,lambdaphit,lambdachit, &
-        & phitinitial,chitinitial
+            & phitinitial,chitinitial,rs_matter,rs_rad,ai_new
+    
 
 real(16), dimension(100000) :: arraya,arrayHt
 common /arrays/ arraya,arrayHt
@@ -432,7 +436,7 @@ integer :: i
 
 real(16) :: Neinitial,Nefinal,dNe,Newrite,dNewrite
 real(16) :: Htinitial,phitpinitial,chitpinitial
-real(16) :: aitoa0approx,Ne0approx
+real(16) :: Ne0approx
 real(16) :: Nechit1,Nechit2,deltaNechit
 
 ! integer :: iRK4,nRK4
@@ -474,7 +478,8 @@ E = 2.7182818284590452353602874713526624977572470937000q0
 ! Omegam0 = 0.3q0
 ! Omegar0 = 1.0q-4
 !
-aitoa0approx = 1.0q-5
+!aitoa0approx = 1.0q-5
+!write(*,*) "ait", aitoa0approx
 Ne0approx = log(1.0q0/aitoa0approx)
 !
 ! rhomtinitial = 3.0q0*Omegam0*aitoa0approx**(-3.0q0)
@@ -492,6 +497,7 @@ if ((rhomtinitial == rhomtinitialflag) .and. (rhortinitial == rhortinitialflag) 
     & .and. (phitinitial == phitinitialflag) .and. (chitinitial == chitinitialflag)) then
     goto 594
 end if
+!write(*,*) 'cheese'
 
 rhomtinitialflag = rhomtinitial
 rhortinitialflag = rhortinitial
@@ -645,12 +651,16 @@ do i = 1,imax
     ! *KR CHANGE*
     ! Important: rescaling
     arraya(i) = (Ne0approx/Ne0)*arrayNe(i) - Ne0approx
-
     ! write(*,*) i,log(arraya(i))
     ! write(*,*) i,arrayNe(i),arrayHt(i),arraya(i)
     ! write(11,*) arraya(i),arrayHt(i)*arraya(i)**2,HtLCDM(arraya(i),0.3q0,1.0q-4)
 end do
-
+!output rescale factors DG 12/23
+rs_rad=exp(4.e0*(Ne0approx-Ne0))
+rs_matter=exp(3.e0*(Ne0approx-Ne0))
+ai_new=exp(-Ne0)
+!write(*,*) rs_rad,rs_matter,ai_new
+!write(*,*) Ne0approx,Ne0
 ! close(11)
 
 ! Nea = Ne0 + log(a)
@@ -734,10 +744,12 @@ function dHt(Ne,Ht,phit,chit,phitp,chitp)
 
     real(16) :: E
     common /constants/ E
-
+!DG  5/23 add constants telling us how to rescale relativistic and non-relativistic comps
+! and adjust e foldings
     real(16) :: rhomtinitial,rhortinitial,lambdaphit,lambdachit,phitinitial,chitinitial
+    real(16) :: rs_matter,rs_rad,ai_new
     common /inputparametersofHta/ rhomtinitial,rhortinitial,lambdaphit,lambdachit, &
-            & phitinitial,chitinitial
+            & phitinitial,chitinitial,rs_matter,rs_rad,ai_new
 
     dHt = (-3.0q0*E**Ne*rhomtinitial - 4.0q0*rhortinitial - &
              &    3.0q0*E**(4.0q0*Ne)*Ht**2.0q0* &
@@ -784,9 +796,12 @@ function dphitp(Ne,Ht,phit,chit,phitp,chitp)
     real(16) :: E
     common /constants/ E
 
+    
+    !DG 12/23 new common block with rescale params        
     real(16) :: rhomtinitial,rhortinitial,lambdaphit,lambdachit,phitinitial,chitinitial
+    real(16) :: rs_matter,rs_rad,ai_new
     common /inputparametersofHta/ rhomtinitial,rhortinitial,lambdaphit,lambdachit, &
-            & phitinitial,chitinitial
+            & phitinitial,chitinitial,rs_matter,rs_rad,ai_new
 
     dphitp = (-6.0q0*lambdaphit*phit**3.0q0 + &
              &    (phitp*(3.0q0*E**Ne*rhomtinitial + 4*rhortinitial + &
@@ -808,9 +823,12 @@ function dchitp(Ne,Ht,phit,chit,phitp,chitp)
     real(16) :: E
     common /constants/ E
 
+    
     real(16) :: rhomtinitial,rhortinitial,lambdaphit,lambdachit,phitinitial,chitinitial
+    real(16) :: rs_matter,rs_rad,ai_new
     common /inputparametersofHta/ rhomtinitial,rhortinitial,lambdaphit,lambdachit, &
-            & phitinitial,chitinitial
+            & phitinitial,chitinitial,rs_matter,rs_rad,ai_new
+    
 
     dchitp = (-6.0q0*lambdachit*chit**3.0q0 + &
              &    (chitp*(3.0q0*E**Ne*rhomtinitial + 4.0q0*rhortinitial + &
