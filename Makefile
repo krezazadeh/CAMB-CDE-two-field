@@ -18,8 +18,8 @@ endif
 ifeq "$(ifortErr)" "0"
 
 #Intel compiler
-F90C     = ifort
-FFLAGS = -W0 -WB -fpp
+F90C     = gfortran
+#FFLAGS = -W0 -WB -fpp
 DEBUGFLAGS = -g -check all -check noarg_temp_created -traceback -fpp -fpe0
 
 ifeq ($(shell uname -s),Darwin)
@@ -31,7 +31,7 @@ endif
 ifdef NONNATIVE
 FFLAGS+=-O3 -ipo -axCORE-AVX2
 else
-FFLAGS+=-fast
+#FFLAGS+=-fast
 endif
 
 ifortVer_major = $(shell ifort -v 2>&1 | cut -d " " -f 3 | cut -d. -f 1)
@@ -39,14 +39,14 @@ ifeq ($(shell test $(ifortVer_major) -gt 15; echo $$?),0)
 FFLAGS+= -qopenmp
 DEBUGFLAGS+= -qopenmp
 else
-FFLAGS+= -openmp -vec_report0
-DEBUGFLAGS+= -openmp
+#FFLAGS+= -openmp -vec_report0
+#DEBUGFLAGS+= -openmp
 endif
 
 ## This is flag is passed to the Fortran compiler allowing it to link C++ if required (not usually):
-F90CRLINK = -cxxlib
-MODOUT = -module $(OUTPUT_DIR)
-SMODOUT = -module $(DLL_DIR)
+#F90CRLINK = -cxxlib
+#MODOUT = -module $(OUTPUT_DIR)
+#SMODOUT = -module $(DLL_DIR)
 ifneq ($(FISHER),)
 FFLAGS += -mkl
 endif
