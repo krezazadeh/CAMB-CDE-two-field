@@ -4,6 +4,11 @@
     !     in one set of parameters and produdes the corresponding output.
 
     program driver
+ !DG 5/23
+    use precision
+    use ModelParams
+    use MassiveNu
+    !End dg
     use IniFile
     use CAMB
     use LambdaGeneral
@@ -18,6 +23,37 @@
     use F90_UNIX
 #endif
     implicit none
+!DG 5/23 fix up flags iteration density finding
+
+    real(dl) a
+    real(dl) rhonu,grhoa2,a2,nu_massless_degeneracy
+    integer nu_i
+real(16) :: Omegam0,Omegar0,aitoa0approx
+real(16) :: rhomtinitial,rhortinitial,lambdaphit,lambdachit,phitinitial,chitinitial
+real(16):: rhomtinitialflag,rhortinitialflag,lambdaphitflag,lambdachitflag,phitinitialflag, &
+            & chitinitialflag
+real(16):: rs_matter,rs_rad,ai_new
+
+common /densityparameters/ Omegam0,Omegar0,aitoa0approx
+common /inputparametersofHta/ rhomtinitial,rhortinitial,lambdaphit,lambdachit, &
+            & phitinitial,chitinitial,rs_matter,rs_rad,ai_new
+
+
+common /flags/ rhomtinitialflag,rhortinitialflag,lambdaphitflag,lambdachitflag,phitinitialflag, &
+            & chitinitialflag
+real(16) :: Hta2,Hta2LCDM
+
+real(16) :: Hta2value,Hta2LCDMvalue
+
+
+real(dl) :: var1,var2,var3,var4,var5
+
+real(dl) :: Ha2,Ha2LCDM,H0inMpcinsec
+
+real(dl) :: Ha2LCDM1,Ha2LCDM2,Hta2LCDM1,Hta2LCDM2
+
+
+!End DG
 
     Type(CAMBparams) P
 
@@ -34,6 +70,12 @@
 #endif
 
     logical bad
+
+    ! KR Jun 9
+    logical :: isHta2tested
+    common /logicalisHta2tested/ isHta2tested
+    isHta2tested = .false.
+    ! End KR Jun 9
 
     InputFile = ''
     if (GetParamCount() /= 0)  InputFile = GetParam(1)
@@ -133,10 +175,72 @@
         P%omegav = Ini_Read_Double('omega_lambda')
         P%omegan = Ini_Read_Double('omega_neutrino')
     end if
-
+ !DG 5/23 move density parameters around so I can call scalar fiel dintegration in inidriver
     P%tcmb   = Ini_Read_Double('temp_cmb',COBE_CMBTemp)
     P%yhe    = Ini_Read_Double('helium_fraction',0.24_dl)
     P%Num_Nu_massless  = Ini_Read_Double('massless_neutrinos')
+
+    grhom=3.3379d-11*P%h0*P%h0
+    grhoc=grhom*P%omegac
+    grhob=grhom*P%omegab
+    grhor=3.3957d-14*P%tcmb**4
+    grhog=1.4952d-13*P%tcmb**4
+    nu_massless_degeneracy = P%Num_Nu_massless
+    grhornomass=grhor*nu_massless_degeneracy
+    H0inMpcinsec = (P%H0)*1.0d3/c
+
+    !write(*,*) grhoc, grhob,grhog,grhornomass,H0inMpcinsec
+
+    Omegam0 = real((grhoc + grhob)/(3.0d0*H0inMpcinsec**2),16)
+    Omegar0 = real((grhog + grhornomass)/(3.0d0*H0inMpcinsec**2),16)
+    !write(*,*) "Omegam0 = ",Omegam0
+   ! write(*,*) "Omegar0 = ",Omegar0
+
+    aitoa0approx = 1.0e-5
+
+    rhomtinitial = 3.0q0*Omegam0*aitoa0approx**(-3.0e0)
+    rhortinitial = 3.0q0*Omegar0*aitoa0approx**(-4.0e0)
+
+! var1 = myparameter1
+! var2 = myparameter2
+! var3 = 10.0d0*myparameter3
+! var4 = 10.0d0**myparameter4
+
+    phitinitial = real(myparameter1,16)
+    chitinitial = real(myparameter2,16)
+    lambdaphit = real(10.0d0**myparameter3,16)
+    lambdachit = real(10.0d0**myparameter4,16)
+    !write(*,*) rhomtinitial ,rhortinitial,phitinitial,chitinitial,lambdaphit,lambdachit
+    Hta2value = real(Hta2(real(1,16), &
+& real(rhomtinitial,16),real(rhortinitial,16), &
+& real(lambdaphit,16),real(lambdachit,16),real(phitinitial,16),real(chitinitial,16)),8)
+   ! write(*,*) "H0=",Hta2value
+!    write(*,*),rs_rad,rs_matter,ai_new
+!    write(*,*) P%omegab*P%h0*P%h0/1.e4,P%omegac*P%h0*P%h0/1.e4,P%omegan*P%h0*P%h0/1.e4,&
+!    &P%omegav
+
+    P%omegab = P%omegab*rs_matter
+    P%omegac = P%omegac*rs_matter
+    P%omegan=P%omegan*rs_matter
+    P%omegav = 1- Ini_Read_Double('omk') - P%omegab-P%omegac - P%omegan
+!    write(*,*) P%omegab*P%h0*P%h0/1.e4,P%omegac*P%h0*P%h0/1.e4,P%omegan*P%h0*P%h0/1.e4,&
+!    &P%omegav
+
+
+    !write(*,*) "Omegam0 = ",Omegam0
+   ! write(*,*) "Omegar0 = ",Omegar0
+
+    aitoa0approx = ai_new
+    rhomtinitialflag=0.e0
+    rhortinitialflag=0.e0
+    lambdaphitflag=0.e0
+    lambdachitflag=0.e0
+    phitinitialflag=0.e0
+    chitinitialflag=0.0e0
+
+ !End DG changes here
+
+
 
     P%Nu_mass_eigenstates = Ini_Read_Int('nu_mass_eigenstates',1)
     if (P%Nu_mass_eigenstates > max_nu) error stop 'too many mass eigenstates'

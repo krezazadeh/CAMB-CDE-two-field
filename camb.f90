@@ -506,10 +506,10 @@
     end if
 
 
-    if (P%omegab<0.001 .or. P%omegac<0 .or. P%omegab>1 .or. P%omegac>3) then
-        OK = .false.
-        write(*,*) 'Your matter densities are strange'
-    end if
+!    if (P%omegab<0.001 .or. P%omegac<0 .or. P%omegab>1 .or. P%omegac>3) then
+!        OK = .false.
+!        write(*,*) 'Your matter densities are strange'
+!    end if
 
     if (P%WantScalars .and. P%Max_eta_k < P%Max_l .or.  &
         P%WantTensors .and. P%Max_eta_k_tensor < P%Max_l_tensor) then

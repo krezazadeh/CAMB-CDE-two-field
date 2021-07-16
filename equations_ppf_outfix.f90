@@ -698,6 +698,8 @@ do i = 1,imax
     ! write(11,*) arraya(i),arrayHt(i)*arraya(i)**2,HtLCDM(arraya(i),0.3q0,1.0q-4)
 end do
 !output rescale factors DG 12/23
+print*,Nei,Ne0approx,Hti
+
 rs_rad=exp(4.q0*(Ne0approx-Ne0))
 rs_matter=exp(3.q0*(Ne0approx-Ne0))
 ai_new=exp(-Ne0)

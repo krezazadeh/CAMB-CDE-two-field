@@ -222,7 +222,7 @@ real(dl) :: Ha2LCDM1,Ha2LCDM2,Hta2LCDM1,Hta2LCDM2
    ! write(*,*) "Omegar0 = ",Omegar0
 
     aitoa0approx = ai_new
-!     rhomtinitialflag=0.e0
+   !  rhomtinitialflag=0.e0
 !     rhortinitialflag=0.e0
 !     lambdaphitflag=0.e0
 !     lambdachitflag=0.e0

@@ -545,7 +545,7 @@ Nechit1 = Neinitial
 Nechit2 = Nechit1 + 1.0q0
 deltaNechit = min(1.0q0,abs(Nechit2 - Nechit1))
 !dNe = deltaNechit/4.0q5
-dNe = deltaNechit/1.0q5
+dNe = deltaNechit/1.0q4
 
 dNewrite = 1.0q-3
 
@@ -855,7 +855,7 @@ phitpi = phitpim1 + (1.0q0/840.0q0)*(41.q0*K41 + 27.0q0*K44 + 272.0q0*K45 + 27.q
 chitpi = chitpim1 + (1.0q0/840.0q0)*(41.q0*K51 + 27.0q0*K54 + 272.0q0*K55 + 27.q0*K56+216.q0*K57+216.q0*K59+41.q0*K510)
 
 if (Nei >= Newrite + dNewrite) then
-   !print *,Nei,Hti,phiti,chiti,"endl"
+!    print *,Nei,Hti,phiti,chiti,"endl"
     ! write(11,*) Nei,Hti,phiti,chiti,"endl"
     i = i + 1
     arrayNe(i) = Nei

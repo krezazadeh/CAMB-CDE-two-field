@@ -459,8 +459,11 @@ common /inputparametersofHta/ rhomtinitial,rhortinitial,lambdaphit,lambdachit, &
             & phitinitial,chitinitial,rs_matter,rs_rad,ai_new
 
 
-real(16), dimension(100000) :: arraya,arrayHt
-common /arrays/ arraya,arrayHt
+
+
+real(16), dimension(1000000) :: arraya,arrayHt,Hta2buff
+real(16) d1,d2
+common /arrays/ arraya,arrayHt,Hta2buff,d1,d2
 
 integer :: imax
 common /arrayindex/ imax
@@ -618,7 +621,7 @@ chitim1 = chiti
 phitpim1 = phitpi
 chitpim1 = chitpi
 
-K11 = dNe*dHt(Neim1,Htim1,phitim1,chitim1,phitpim1,chitpim1)
+stepHt1 = dNe*dHt(Neim1,Htim1,phitim1,chitim1,phitpim1,chitpim1)
 K21 = dNe*dphit(Neim1,Htim1,phitim1,chitim1,phitpim1,chitpim1)
 K31 = dNe*dchit(Neim1,Htim1,phitim1,chitim1,phitpim1,chitpim1)
 K41 = dNe*dphitp(Neim1,Htim1,phitim1,chitim1,phitpim1,chitpim1)
@@ -698,10 +701,15 @@ do i = 1,imax
     ! write(11,*) arraya(i),arrayHt(i)*arraya(i)**2,HtLCDM(arraya(i),0.3q0,1.0q-4)
 end do
 !output rescale factors DG 12/23
+print*,Nei,Ne0approx,Hti
+
 rs_rad=exp(4.q0*(Ne0approx-Ne0))
 rs_matter=exp(3.q0*(Ne0approx-Ne0))
 ai_new=exp(-Ne0)
 
+d1=(log(arrayHt(2))-log(arrayHt(1)))/(arraya(2)-arraya(1))
+d2=(log(arrayHt(imax))-log(arrayHt(imax-1)))/(arraya(imax)-arraya(imax-1))
+call splineq(arraya(1:imax),log(arrayHt(1:imax)),imax,d1,d2,Hta2buff(1:imax))
 !write(*,*) (Ne0approx-Ne0)
 !write(*,*) rs_rad,rs_matter,ai_new
 !write(*,*) Ne0approx,Ne0
@@ -720,7 +728,11 @@ ai_new=exp(-Ne0)
 Hta2 = arrayHt(1)*exp(arraya(1))**2
 
 else if ((log(ainput) > arraya(1)) .and. (log(ainput) <= arraya(imax))) then
-
+call splineq_out(arraya(1:imax),log(arrayHt(1:imax)),&
+	&Hta2buff(1:imax)&
+	&,imax,log(ainput),Hta2)
+Hta2=exp(Hta2)*ainput**2
+!print*,'this far?',(Hta2)
 ! {
 ! This is very slow.
 ! i = 1
@@ -732,39 +744,39 @@ else if ((log(ainput) > arraya(1)) .and. (log(ainput) <= arraya(imax))) then
 
 ! {
 ! bisection method
-leftpoint = 1
-rightpoint = imax
-do while ((rightpoint - leftpoint) > 1)
-   midpoint = (rightpoint + leftpoint)/2
-   if (arraya(midpoint) > log(ainput)) then
-      rightpoint = midpoint
-   else
-      leftpoint = midpoint
-   endif
-enddo
-i = leftpoint
-! }
-
-! {
-! secant method
-! asecant = real(1,16)
-! bsecant= real(imax,16)
-! dxsecant = abs(bsecant - asecant)
-! do while (int(dxsecant) > 1)
-! xsecant = asecant - ((arraya(int(asecant)) - log(ainput))*(bsecant - asecant))/(arraya(int(bsecant)) - arraya(int(asecant)))
-! if ((arraya(int(asecant)) - log(ainput))*(arraya(int(xsecant)) - log(ainput)) < 0.0q0) then
-!     bsecant = xsecant
-! else
-!     asecant = xsecant
-! end if
-! dxsecant = abs(bsecant - asecant)
-! end do
-! i = min(int(asecant),int(bsecant))
-!}
-
-Hta2 = (arrayHt(i) + ((arrayHt(i+1) - arrayHt(i))/(arraya(i+1) - arraya(i)))*(log(ainput) &
-        & - arraya(i)))*ainput**2
-
+! leftpoint = 1
+! rightpoint = imax
+! do while ((rightpoint - leftpoint) > 1)
+!    midpoint = (rightpoint + leftpoint)/2
+!    if (arraya(midpoint) > log(ainput)) then
+!       rightpoint = midpoint
+!    else
+!       leftpoint = midpoint
+!    endif
+! enddo
+! i = leftpoint
+! ! }
+! 
+! ! {
+! ! secant method
+! ! asecant = real(1,16)
+! ! bsecant= real(imax,16)
+! ! dxsecant = abs(bsecant - asecant)
+! ! do while (int(dxsecant) > 1)
+! ! xsecant = asecant - ((arraya(int(asecant)) - log(ainput))*(bsecant - asecant))/(arraya(int(bsecant)) - arraya(int(asecant)))
+! ! if ((arraya(int(asecant)) - log(ainput))*(arraya(int(xsecant)) - log(ainput)) < 0.0q0) then
+! !     bsecant = xsecant
+! ! else
+! !     asecant = xsecant
+! ! end if
+! ! dxsecant = abs(bsecant - asecant)
+! ! end do
+! ! i = min(int(asecant),int(bsecant))
+! !}
+! 
+! Hta2 = (arrayHt(i) + ((arrayHt(i+1) - arrayHt(i))/(arraya(i+1) - arraya(i)))*(log(ainput) &
+!         & - arraya(i)))*ainput**2
+!print*,Hta2
 else if (log(ainput) > arraya(imax)) then
 
 Hta2 =  E**(((arraya(imax))*log(arrayHt(imax-1)) - &

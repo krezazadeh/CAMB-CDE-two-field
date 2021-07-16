@@ -474,27 +474,33 @@ common /flags/ rhomtinitialflag,rhortinitialflag,lambdaphitflag,lambdachitflag,p
 real(16) :: E
 common /constants/ E
 
-integer :: i
+integer :: i,m
 
 real(16) :: Neinitial,Nefinal,dNe,Newrite,dNewrite
-real(16) :: Htinitial,phitpinitial,chitpinitial
+real(16) :: Htinitial,phiptinitial,chiptinitial
 real(16) :: Ne0approx
 real(16) :: Nechit1,Nechit2,deltaNechit
 
 ! integer :: iRK4,nRK4
-real(16) :: Nei,Hti,phiti,chiti,phitpi,chitpi
-real(16) :: Neim1,Htim1,phitim1,chitim1,phitpim1,chitpim1
+real(16) :: Nei,Hti,phiti,chiti,phipti,chipti
+real(16) :: Neim1,Htim1,phitim1,chitim1,phiptim1,chiptim1
 real(16) :: dHt,dphit,dchit,dphitp,dchitp
-real(16) :: K11,K12,K13,K14
-real(16) :: K21,K22,K23,K24
-real(16) :: K31,K32,K33,K34
-real(16) :: K41,K42,K43,K44
-real(16) :: K51,K52,K53,K54
+real(16) :: stepHt1,stepHt2,stepHt3,stepHt4
+real(16) :: stepphi1,stepphi2,stepphi3,stepphi4
+real(16) :: stepchi1,stepchi2,stepchi3,stepchi4
+real(16) :: stepphip1,stepphip2,stepphip3,stepphip4
+real(16) :: stepchip1,stepchip2,stepchip3,stepchip4,kfeed
+real(16):: Hfeed,phifeed,chifeed,phipfeed,chipfeed
+
+
+
 
 real(16) :: Ne0 !,Ht0,phit0,chit0,phitp0,chitp0
 ! real(16) :: Nea
 
 real(16), dimension(100000) :: arrayNe
+real(16) cmat(1:4,1:4),kv(1:4),sv(1:4)
+real(16) stepHt(4),stepphi(4),stepchi(4), stepphip(4), stepchip(4)
 
 real(16) :: HtLCDM
 
@@ -552,21 +558,21 @@ Neinitial = 0.0q0
 ! Nefinal = Ne0approx + 5.0q0
 ! Nefinal = 40.0q0
 
-phitpinitial = (-4.0q0*lambdaphit*phitinitial**3.0q0)/ &
+phiptinitial = (-4.0q0*lambdaphit*phitinitial**3.0q0)/ &
                  &  ((4.0q0*rhomtinitial)/E**(3.0q0*Neinitial) + (4.0q0*rhortinitial)/ &
                  & E**(4.0q0*Neinitial) + &
                  &    lambdaphit*phitinitial**4.0q0 + lambdachit*chitinitial**4.0q0)
 
-chitpinitial = (-4.0q0*lambdachit*chitinitial**3.0q0)/ &
+chiptinitial = (-4.0q0*lambdachit*chitinitial**3.0q0)/ &
                  &  ((4.0q0*rhomtinitial)/E**(3.0q0*Neinitial) + (4.0q0*rhortinitial)/ &
                  & E**(4.0q0*Neinitial) + &
                  &    lambdaphit*phitinitial**4.0q0 + lambdachit*chitinitial**4.0q0)
 
 Htinitial = ((-(((4.0q0*(E**Neinitial*rhomtinitial + rhortinitial))/E**(4.0q0*Neinitial) + &
                &        lambdaphit*phitinitial**4.0q0 + lambdachit*chitinitial**4.0q0)/ &
-               &      (-6.0q0 + phitpinitial**2.0q0 + chitpinitial**2.0q0)))/(2.0q0))**(0.5q0)
+               &      (-6.0q0 + phiptinitial**2.0q0 + chiptinitial**2.0q0)))/(2.0q0))**(0.5q0)
 
-! Important: Htinitial most be given after phitpinitial and chitpinitial.
+! Important: Htinitial most be given after phiptinitial and chiptinitial.
 
 ! RK4Hphitchitphitpchitp
 
@@ -578,7 +584,7 @@ Htinitial = ((-(((4.0q0*(E**Neinitial*rhomtinitial + rhortinitial))/E**(4.0q0*Ne
 Nechit1 = Neinitial
 Nechit2 = Nechit1 + 1.0q0
 deltaNechit = min(1.0q0,abs(Nechit2 - Nechit1))
-dNe = deltaNechit/1.0q4
+dNe = deltaNechit/1.0q5
 !dNe = 1.0q-4
 
 dNewrite = 1.0q-3
@@ -590,8 +596,8 @@ Newrite = Nei
 Hti = Htinitial
 phiti = phitinitial
 chiti = chitinitial
-phitpi = phitpinitial
-chitpi = chitpinitial
+phipti = phiptinitial
+chipti = chiptinitial
 
 ! write(11,*) Nei,Hti,phiti,chiti,"endl"
 arrayNe(i) = Nei
@@ -615,51 +621,97 @@ Neim1 = Nei
 Htim1 = Hti
 phitim1 = phiti
 chitim1 = chiti
-phitpim1 = phitpi
-chitpim1 = chitpi
+phiptim1 = phipti
+chiptim1 = chipti
 
-K11 = dNe*dHt(Neim1,Htim1,phitim1,chitim1,phitpim1,chitpim1)
-K21 = dNe*dphit(Neim1,Htim1,phitim1,chitim1,phitpim1,chitpim1)
-K31 = dNe*dchit(Neim1,Htim1,phitim1,chitim1,phitpim1,chitpim1)
-K41 = dNe*dphitp(Neim1,Htim1,phitim1,chitim1,phitpim1,chitpim1)
-K51 = dNe*dchitp(Neim1,Htim1,phitim1,chitim1,phitpim1,chitpim1)
+stepHt=0.0q0
+stepphi=0.0q0
+stepchi=0.0q0
+stepphip=0.0q0
+stepchip=0.0q0
+cmat(1,1)=0.0q0
+cmat(2,1)=0.5q0
+cmat(3,3)=0.0q0
+cmat(3,2)=0.5q0
+cmat(3,1)=0.0q0
+cmat(4,4)=0.0q0
+cmat(4,3)=1.0q0
+cmat(4,2)=0.0q0
+cmat(4,1)=0.0q0
 
-K12 = dNe*dHt(Neim1 + dNe/2.0q0,Htim1 + K11/2.0q0, phitim1 + K21/2.0q0,chitim1 + &
-& K31/2.0q0,phitpim1 + K41/2.0q0,chitpim1 + K51/2.0q0)
-K22 = dNe*dphit(Neim1 + dNe/2.0q0,Htim1 + K11/2.0q0, phitim1 + K21/2.0q0,chitim1 + &
-& K31/2.0q0,phitpim1 + K41/2.0q0,chitpim1 + K51/2.0q0)
-K32 = dNe*dchit(Neim1 + dNe/2.0q0,Htim1 + K11/2.0q0, phitim1 + K21/2.0q0,chitim1 + &
-& K31/2.0q0,phitpim1 + K41/2.0q0,chitpim1 + K51/2.0q0)
-K42 = dNe*dphitp(Neim1 + dNe/2.0q0,Htim1 + K11/2.0q0, phitim1 + K21/2.0q0,chitim1 + &
-& K31/2.0q0,phitpim1 + K41/2.0q0,chitpim1 + K51/2.0q0)
-K52 = dNe*dchitp(Neim1 + dNe/2.0q0,Htim1 + K11/2.0q0, phitim1 + K21/2.0q0,chitim1 + &
-& K31/2.0q0,phitpim1 + K41/2.0q0,chitpim1 + K51/2.0q0)
+kv(1)=0.q0
+kv(2)=0.5q0*dNe
+kv(3)=0.5q0*dNe
+kv(4)=dNe
 
-K13 = dNe*dHt(Neim1 + dNe/2.0q0,Htim1 + K12/2.0q0,phitim1 + K22/2.0q0,chitim1 + &
-& K32/2.0q0,phitpim1 + K42/2.0q0,chitpim1 + K52/2.0q0)
-K23 = dNe*dphit(Neim1 + dNe/2.0q0,Htim1 + K12/2.0q0,phitim1 + K22/2.0q0,chitim1 + &
-& K32/2.0q0,phitpim1 + K42/2.0q0,chitpim1 + K52/2.0q0)
-K33 = dNe*dchit(Neim1 + dNe/2.0q0,Htim1 + K12/2.0q0,phitim1 + K22/2.0q0,chitim1 + &
-& K32/2.0q0,phitpim1 + K42/2.0q0,chitpim1 + K52/2.0q0)
-K43 = dNe*dphitp(Neim1 + dNe/2.0q0,Htim1 + K12/2.0q0,phitim1 + K22/2.0q0,chitim1 + &
-& K32/2.0q0,phitpim1 + K42/2.0q0,chitpim1 + K52/2.0q0)
-K53 = dNe*dchitp(Neim1 + dNe/2.0q0,Htim1 + K12/2.0q0,phitim1 + K22/2.0q0,chitim1 + &
-& K32/2.0q0,phitpim1 + K42/2.0q0,chitpim1 + K52/2.0q0)
 
-K14 = dNe*dHt(Neim1 + dNe,Htim1 + K13,phitim1 + K23,chitim1 + K33,phitpim1 + K43,chitpim1 + K53)
-K24 = dNe*dphit(Neim1 + dNe,Htim1 + K13,phitim1 + K23,chitim1 + K33,phitpim1 + K43,chitpim1 + K53)
-K34 = dNe*dchit(Neim1 + dNe,Htim1 + K13,phitim1 + K23,chitim1 + K33,phitpim1 + K43,chitpim1 + K53)
-K44 = dNe*dphitp(Neim1 + dNe,Htim1 + K13,phitim1 + K23,chitim1 + K33,phitpim1 + K43,chitpim1 + K53)
-K54 = dNe*dchitp(Neim1 + dNe,Htim1 + K13,phitim1 + K23,chitim1 + K33,phitpim1 + K43,chitpim1 + K53)
 
+! kfeed=Neim1+kv(1)
+! stepHt(1) = dNe*dHt(kfeed,Htim1,phitim1,chitim1,phiptim1,chiptim1)
+! stepphi(1) = dNe*dphit(kfeed,Htim1,phitim1,chitim1,phiptim1,chiptim1)
+! stepchi(1) = dNe*dchit(kfeed,Htim1,phitim1,chitim1,phiptim1,chiptim1)
+! stepphip(1) = dNe*dphitp(kfeed,Htim1,phitim1,chitim1,phiptim1,chiptim1)
+! stepchip(1) = dNe*dchitp(kfeed,Htim1,phitim1,chitim1,phiptim1,chiptim1)
+
+do m=1,4,1
+kfeed=Neim1+kv(m)
+Hfeed=Htim1+dot_product(cmat(m,:),stepHt(:))
+phifeed=phitim1+dot_product(cmat(m,:),stepphi(:))
+chifeed=chitim1+dot_product(cmat(m,:),stepchi(:))
+phipfeed=phiptim1+dot_product(cmat(m,:),stepphip(:))
+chipfeed=chiptim1+dot_product(cmat(m,:),stepchip(:))
+stepHt(m) = dNe*dHt(kfeed,Hfeed, phifeed,chifeed,phipfeed,chipfeed)
+stepphi(m) = dNe*dphit(kfeed,Hfeed, phifeed,chifeed,phipfeed,chipfeed)
+stepchi(m) = dNe*dchit(kfeed,Hfeed, phifeed,chifeed,phipfeed,chipfeed)
+stepphip(m) = dNe*dphitp(kfeed,Hfeed, phifeed,chifeed,phipfeed,chipfeed)
+stepchip(m) = dNe*dchitp(kfeed,Hfeed, phifeed,chifeed,phipfeed,chipfeed)
+enddo
+! 
+! kfeed=Neim1+kv(3)
+! Hfeed=Htim1+dot_product(cmat(3,:),stepHt(:))
+! phifeed=phitim1+dot_product(cmat(3,:),stepphi(:))
+! chifeed=chitim1+dot_product(cmat(3,:),stepchi(:))
+! phipfeed=phiptim1+dot_product(cmat(3,:),stepphip(:))
+! chipfeed=chiptim1+dot_product(cmat(3,:),stepchip(:))
+! 
+! 
+! stepHt(3) = dNe*dHt(kfeed,Hfeed, phifeed,chifeed,phipfeed,chipfeed)
+! stepphi(3) = dNe*dphit(kfeed,Hfeed, phifeed,chifeed,phipfeed,chipfeed)
+! stepchi(3) = dNe*dchit(kfeed,Hfeed, phifeed,chifeed,phipfeed,chipfeed)
+! stepphip(3) = dNe*dphitp(kfeed,Hfeed, phifeed,chifeed,phipfeed,chipfeed)
+! stepchip(3) = dNe*dchitp(kfeed,Hfeed, phifeed,chifeed,phipfeed,chipfeed)
+! 
+! kfeed=Neim1+kv(4)
+! 
+! Hfeed=Htim1+dot_product(cmat(4,:),stepHt(:))
+! phifeed=phitim1+dot_product(cmat(4,:),stepphi(:))
+! chifeed=chitim1+dot_product(cmat(4,:),stepchi(:))
+! phipfeed=phiptim1+dot_product(cmat(4,:),stepphip(:))
+! chipfeed=chiptim1+dot_product(cmat(4,:),stepchip(:))
+! 
+! 
+! stepHt(4) = dNe*dHt(kfeed,Hfeed, phifeed,chifeed,phipfeed,chipfeed)
+! stepphi(4) = dNe*dphit(kfeed,Hfeed, phifeed,chifeed,phipfeed,chipfeed)
+! stepchi(4) = dNe*dchit(kfeed,Hfeed, phifeed,chifeed,phipfeed,chipfeed)
+! stepphip(4) = dNe*dphitp(kfeed,Hfeed, phifeed,chifeed,phipfeed,chipfeed)
+! stepchip(4) = dNe*dchitp(kfeed,Hfeed, phifeed,chifeed,phipfeed,chipfeed)
+
+sv(1)=1.0q0/6.0q0
+sv(2)=1.0q0/3.0q0
+sv(3)=1.0q0/3.0q0
+sv(4)=1.0q0/6.0q0
 Nei = Neim1 + dNe
-Hti = Htim1 + (1.0q0/6.0q0)*(K11 + 2.0q0*K12 + 2.0q0*K13 + K14)
-phiti = phitim1 + (1.0q0/6.0q0)*(K21 + 2.0q0*K22 + 2.0q0*K23 + K24)
-chiti = chitim1 + (1.0q0/6.0q0)*(K31 + 2.0q0*K32 + 2.0q0*K33 + K34)
-phitpi = phitpim1 + (1.0q0/6.0q0)*(K41 + 2.0q0*K42 + 2.0q0*K43 + K44)
-chitpi = chitpim1 + (1.0q0/6.0q0)*(K51 + 2.0q0*K52 + 2.0q0*K53 + K54)
+Hti = Htim1 + dot_product(sv,stepHt)
+phiti = phitim1 + dot_product(sv,stepphi)
+chiti = chitim1 + dot_product(sv,stepchi)
+phipti = phiptim1 + dot_product(sv,stepphip)
+chipti = chiptim1 + dot_product(sv,stepchip)
+
+121 FORMAT (F14.10, 5X, F18.6,5X,F14.12,5X,F14.8)
 
 if (Nei >= Newrite + dNewrite) then
+  !  write(*,121) Nei,Hti,chiti,phiti
+
     ! print *,Nei,Hti,phiti,chiti,"endl"
     ! write(11,*) Nei,Hti,phiti,chiti,"endl"
     i = i + 1
@@ -680,8 +732,8 @@ Ne0 = Nei
 ! Ht0 = 1.0q0
 ! phit0 = phiti
 ! chit0 = chiti
-! phitp0 = phitpi
-! chitp0 = chitpi
+! phitp0 = phipti
+! chitp0 = chipti
 
 ! open(unit=11,file='aHta2.dat')
 
@@ -698,6 +750,8 @@ do i = 1,imax
     ! write(11,*) arraya(i),arrayHt(i)*arraya(i)**2,HtLCDM(arraya(i),0.3q0,1.0q-4)
 end do
 !output rescale factors DG 12/23
+print*,Nei,Ne0approx,Hti
+
 rs_rad=exp(4.q0*(Ne0approx-Ne0))
 rs_matter=exp(3.q0*(Ne0approx-Ne0))
 ai_new=exp(-Ne0)

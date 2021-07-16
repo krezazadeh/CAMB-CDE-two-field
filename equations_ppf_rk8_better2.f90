@@ -236,7 +236,7 @@ real(dl) :: grhoa20,dtauda0,H0dtauda
 real(16) :: Omegam0,Omegar0,rs_matter,rs_rad,ai_new
 real(16) :: rhomtinitial,rhortinitial,lambdaphit,lambdachit,phitinitial,chitinitial
 
-common /densityparameters/ Omegam0,Omegar0,aitoa0approx
+common /densityparameters/ Omegam0,Omegar0,aitoa0approx 
 common /inputparametersofHta/ rhomtinitial,rhortinitial,lambdaphit,lambdachit, &
             & phitinitial,chitinitial,rs_matter,rs_rad,ai_new
 
@@ -251,13 +251,6 @@ real(dl) :: var1,var2,var3,var4,var5
 real(dl) :: Ha2,Ha2LCDM,H0inMpcinsec
 
 real(dl) :: Ha2LCDM1,Ha2LCDM2,Hta2LCDM1,Hta2LCDM2
-
-! KR Jun 9
-logical :: isHta2tested
-common /logicalisHta2tested/ isHta2tested
-real(16) :: log10ainitial,log10afinal,atest
-integer :: i,ni
-! End KR Jun 9
 
 !{
 
@@ -284,9 +277,6 @@ end if
 dtauda0 = sqrt(3/grhoa20)
 
 H0inMpcinsec = (1.0d0/dtauda0)
-
-! write(*,*) "H0input = ",CP%H0
-! write(*,*) "H0output = ",H0inMpcinsec*(c/1.0d3)
 
 ! H0dtauda = (1.0d0/dtauda0)*(c/1.0d3)
 
@@ -381,41 +371,9 @@ Hta2value = real(Hta2(real(a,16), &
 & real(rhomtinitial,16),real(rhortinitial,16), &
 & real(lambdaphit,16),real(lambdachit,16),real(phitinitial,16),real(chitinitial,16)),8)
 
-! write(*,*) "Hta20value = ", real(Hta2(real(1.0q0,16), &
-! & real(rhomtinitial,16),real(rhortinitial,16), &
-! & real(lambdaphit,16),real(lambdachit,16),real(phitinitial,16),real(chitinitial,16)),8)
-
 Ha2 = (Hta2value/Hta2LCDMvalue)*Ha2LCDM1
 
 dtauda = 1.0d0/Ha2
-
-! KR Jun 9
-! test Hta2
-
-if (.not. isHta2tested) then
-
-isHta2tested = .true.
-
-! write(*,*) "rhomtinitial = ",rhomtinitial
-! write(*,*) "rhortinitial = ",rhortinitial
-
-open(unit=11,file='a-Ht.txt')
-
-log10ainitial = -5.0q0
-log10afinal = 0.0q0
-ni = 10000
-do i = 1,ni
-    atest = 10.0q0**(log10ainitial + (log10afinal - log10ainitial)*real(i - 1,16)/real(ni - 1,16))
-    write(11,"(2e25.16)") atest, &
-    &    Hta2(atest,rhomtinitial,rhortinitial,lambdaphit,lambdachit,&
-    & phitinitial,chitinitial)/atest**2
-end do
-
-close(11)
-
-end if
-
-! End KR Jun 9
 
 end function dtauda
 
@@ -451,15 +409,16 @@ real(16) :: ainput,rhomtinitialinput,rhortinitialinput,lambdaphitinput, &
 real(16) :: Hta2,aitoa0approx
 
 real(16) :: Omegam0,Omegar0
-common /densityparameters/ Omegam0,Omegar0,aitoa0approx
+common /densityparameters/ Omegam0,Omegar0,aitoa0approx 
 
 real(16) :: rhomtinitial,rhortinitial,lambdaphit,lambdachit,phitinitial,chitinitial
 real(16) :: rs_matter,rs_rad,ai_new
 common /inputparametersofHta/ rhomtinitial,rhortinitial,lambdaphit,lambdachit, &
             & phitinitial,chitinitial,rs_matter,rs_rad,ai_new
+    
 
-
-real(16), dimension(100000) :: arraya,arrayHt
+real(16), dimension(1000000) :: arraya,arrayHt
+real(16), dimension(10):: stepHt,stepphi,stepchi,stepphip,stepchip
 common /arrays/ arraya,arrayHt
 
 integer :: imax
@@ -483,18 +442,26 @@ real(16) :: Nechit1,Nechit2,deltaNechit
 
 ! integer :: iRK4,nRK4
 real(16) :: Nei,Hti,phiti,chiti,phitpi,chitpi
-real(16) :: Neim1,Htim1,phitim1,chitim1,phitpim1,chitpim1
+real(16) :: Neim1,Htim1,phitim1,chitim1,phiptim1,chiptim1
 real(16) :: dHt,dphit,dchit,dphitp,dchitp
-real(16) :: K11,K12,K13,K14
-real(16) :: K21,K22,K23,K24
-real(16) :: K31,K32,K33,K34
-real(16) :: K41,K42,K43,K44
-real(16) :: K51,K52,K53,K54
+real(16) :: stepHt1,stepHt2,stepHt3,stepHt4
+real(16) :: stepphi1,stepphi2,stepphi3,stepphi4
+real(16) :: stepchi1,stepchi2,stepchi3,stepchi4
+real(16) :: stepphip1,stepphip2,stepphip3,stepphip4
+real(16) :: stepchip1,stepchip2,stepchip3,stepchip4
+
+!DG 7/2/21 added new runge constnts
+real(16) :: stepHt5,stepHt6,stepHt7,stepHt8,stepHt9,stepHt10
+real(16) :: stepphi5,stepphi6,stepphi7,stepphi8,stepphi9,stepphi10
+real(16) :: stepchi5,stepchi6,stepchi7,stepchi8,stepchi9,stepchi10
+real(16) :: stepphip5,stepphip6,stepphip7,stepphip8,stepphip9,stepphip10
+real(16) :: stepchip5,stepchip6,stepchip7,stepchip8,stepchip9,stepchip10
+
 
 real(16) :: Ne0 !,Ht0,phit0,chit0,phitp0,chitp0
 ! real(16) :: Nea
 
-real(16), dimension(100000) :: arrayNe
+real(16), dimension(1000000) :: arrayNe
 
 real(16) :: HtLCDM
 
@@ -578,8 +545,8 @@ Htinitial = ((-(((4.0q0*(E**Neinitial*rhomtinitial + rhortinitial))/E**(4.0q0*Ne
 Nechit1 = Neinitial
 Nechit2 = Nechit1 + 1.0q0
 deltaNechit = min(1.0q0,abs(Nechit2 - Nechit1))
+!dNe = deltaNechit/4.0q5
 dNe = deltaNechit/1.0q4
-!dNe = 1.0q-4
 
 dNewrite = 1.0q-3
 
@@ -596,8 +563,8 @@ chitpi = chitpinitial
 ! write(11,*) Nei,Hti,phiti,chiti,"endl"
 arrayNe(i) = Nei
 arrayHt(i) = Hti
-
 ! do iRK4 = 2,nRK4
+!print*,Hti
 do while (Hti >= 1.0q0)
 
 ! if ((Hti >= 1.0q0) .and. (Hti < 1.01q0)) then
@@ -615,61 +582,496 @@ Neim1 = Nei
 Htim1 = Hti
 phitim1 = phiti
 chitim1 = chiti
-phitpim1 = phitpi
-chitpim1 = chitpi
+phiptim1 = phitpi
+chiptim1 = chitpi
+!DG 7/3/2021 added Runge Kutta 8 from https://athene-forschung.unibw.de/doc/85242/85242.pdf
+stepHt(1) = dNe*dHt(Neim1,Htim1,phitim1,chitim1,phiptim1,chiptim1)
+stepphi(1) = dNe*dphit(Neim1,Htim1,phitim1,chitim1,phiptim1,chiptim1)
+stepchi(1) = dNe*dchit(Neim1,Htim1,phitim1,chitim1,phiptim1,chiptim1)
+stepphip(1) = dNe*dphitp(Neim1,Htim1,phitim1,chitim1,phiptim1,chiptim1)
+stepchip(1) = dNe*dchitp(Neim1,Htim1,phitim1,chitim1,phiptim1,chiptim1)
 
-K11 = dNe*dHt(Neim1,Htim1,phitim1,chitim1,phitpim1,chitpim1)
-K21 = dNe*dphit(Neim1,Htim1,phitim1,chitim1,phitpim1,chitpim1)
-K31 = dNe*dchit(Neim1,Htim1,phitim1,chitim1,phitpim1,chitpim1)
-K41 = dNe*dphitp(Neim1,Htim1,phitim1,chitim1,phitpim1,chitpim1)
-K51 = dNe*dchitp(Neim1,Htim1,phitim1,chitim1,phitpim1,chitpim1)
+stepHt(2) = dNe*dHt(Neim1 + (4.q0/27.q0)*dNe,&
+&Htim1 + (4.q0/27.q0)*stepHt(1), phitim1 + (4.q0/27.q0)*stepphi(1),chitim1 + &
+&(4.q0/27.q0)* &
+&stepchi(1),phiptim1 + (4.q0/27.q0)*stepphip(1),chiptim1 + (4.q0/27.q0)*stepchip(1))
+stepphi(2) = dNe*dphit(Neim1 + (4.q0/27.q0)*dNe,Htim1 + (4.q0/27.q0)*stepHt(1), phitim1 + (4.q0/27.q0)*&
+&stepphi(1),chitim1 + &
+&(4.q0/27.q0)* &
+&stepchi(1),phiptim1 + &
+&(4.q0/27.q0)*stepphip(1),chiptim1 + (4.q0/27.q0)*stepchip(1))
+stepchi(2) = dNe*dchit(Neim1 + (4.q0/27.q0)*dNe,Htim1 + &
+&(4.q0/27.q0)*stepHt(1), phitim1 + (4.q0/27.q0)*stepphi(1),chitim1 + &
+&(4.q0/27.q0)* &
+&stepchi(1),phiptim1 + (4.q0/27.q0)*stepphip(1),chiptim1 + (4.q0/27.q0)*stepchip(1))
+stepphip(2) = dNe*dphitp(Neim1 + &
+&(4.q0/27.q0)*dNe,Htim1 + (4.q0/27.q0)*stepHt(1), phitim1 + (4.q0/27.q0)*stepphi(1),chitim1 + &
+&(4.q0/27.q0)* stepchi(1),phiptim1 + (4.q0/27.q0)*stepphip(1),chiptim1 + (4.q0/27.q0)*stepchip(1))
+stepchip(2) = dNe*dchitp(Neim1 + (4.q0/27.q0)*dNe,Htim1 + (4.q0/27.q0)*stepHt(1), phitim1 + (4.q0/27.q0)*stepphi(1),chitim1 + &
+&(4.q0/27.q0)* stepchi(1),phiptim1 + (4.q0/27.q0)*stepphip(1),chiptim1 + (4.q0/27.q0)*stepchip(1))
 
-K12 = dNe*dHt(Neim1 + dNe/2.0q0,Htim1 + K11/2.0q0, phitim1 + K21/2.0q0,chitim1 + &
-& K31/2.0q0,phitpim1 + K41/2.0q0,chitpim1 + K51/2.0q0)
-K22 = dNe*dphit(Neim1 + dNe/2.0q0,Htim1 + K11/2.0q0, phitim1 + K21/2.0q0,chitim1 + &
-& K31/2.0q0,phitpim1 + K41/2.0q0,chitpim1 + K51/2.0q0)
-K32 = dNe*dchit(Neim1 + dNe/2.0q0,Htim1 + K11/2.0q0, phitim1 + K21/2.0q0,chitim1 + &
-& K31/2.0q0,phitpim1 + K41/2.0q0,chitpim1 + K51/2.0q0)
-K42 = dNe*dphitp(Neim1 + dNe/2.0q0,Htim1 + K11/2.0q0, phitim1 + K21/2.0q0,chitim1 + &
-& K31/2.0q0,phitpim1 + K41/2.0q0,chitpim1 + K51/2.0q0)
-K52 = dNe*dchitp(Neim1 + dNe/2.0q0,Htim1 + K11/2.0q0, phitim1 + K21/2.0q0,chitim1 + &
-& K31/2.0q0,phitpim1 + K41/2.0q0,chitpim1 + K51/2.0q0)
+stepHt(3) = dNe*dHt(Neim1 + (2.q0/9.q0)*dNe,Htim1 + (3.q0*stepHt(2)&
+&+stepHt(1))/18.0q0,phitim1 +  (3.q0*stepphi(2)+stepphi(1))/18.0q0,chitim1 + &
+&  (3.q0*stepchi(2)&
+&+stepchi(1))/18.0q0,phiptim1 + (3.q0*stepphip(2)+stepphip(1))/18.0q0,chiptim1 +  (3.q0*stepchip(2)+stepchip(1))&
+&/18.0q0)
+stepphi(3) = dNe*dphit(Neim1 + (2.q0/9.q0)*dNe,Htim1 + (3.q0*stepHt(2)+&
+&stepHt(1))/18.0q0,phitim1 +  (3.q0*stepphi(2)+&
+&stepphi(1))/18.0q0,chitim1 + &
+&  (3.q0*stepchi(2)&
+&+stepchi(1))/18.0q0,phiptim1 + (3.q0*stepphip(2)+stepphip(1))/18.0q0&
+&,chiptim1 +  (3.q0*stepchip(2)+stepchip(1))/18.0q0)
+stepchi(3) = dNe*dchit(Neim1 + (2.q0/9.q0)*dNe,Htim1 + (3.q0*stepHt(2)+stepHt(1))&
+&/18.0q0,phitim1 +  (3.q0*stepphi(2)+stepphi(1)&
+&)/18.0q0,chitim1 + &
+&  (3.q0*stepchi(2)+stepchi(1)&
+&)/18.0q0,phiptim1 + (3.q0*stepphip(2)+stepphip(1))/18.0q0,chiptim1 +  (3.q0*stepchip(2)+stepchip(1))/18.0q0)
+stepphip(3) = dNe*dphitp(Neim1 &
+&+ (2.q0/9.q0)*dNe,Htim1 + (3.q0*stepHt(2)+stepHt(1)&
+&)/18.0q0,phitim1 +  (3.q0*stepphi(2)+stepphi(1))&
+&/18.0q0,chitim1 + &
+&  (3.q0*stepchi(2)+stepchi(1))&
+&/18.0q0,phiptim1 + (3.q0*stepphip(2)+stepphip(1))/18.0q0,chiptim1 +  (3.q0*stepchip(2)+stepchip(1))/18.0q0)
+stepchip(3) = dNe*dchitp(Neim1 + &
+&(2.q0/9.q0)*dNe,Htim1 + (3.q0*stepHt(2)+stepHt(1))/18.0q0,phitim1 +  (3.q0*stepphi(2)+stepphi(1))&
+&/18.0q0,chitim1 + &
+&  (3.q0*stepchi(2)+stepchi(1))/18.0q0&
+&,phiptim1 + (3.q0*stepphip(2)+stepphip(1))/18.0q0,chiptim1 +  (3.q0*stepchip(2)+stepchip(1))/18.0q0)
+! 
+stepHt(4) = dNe*dHt(Neim1&
+& + (1.q0/3.q0)*dNe,Htim1 + (3.q0*stepHt(3)+stepHt(1))/12.0q0,phitim1 + (3.q0*stepphi(3)+stepphi(1))&
+&/12.0q0,&
+&chitim1 + (3.q0*stepchi(3)+stepchi(1))/12.0q0,phiptim1+&
+ &(3.q0*stepphip(3)+stepphip(1))/12.0q0,chiptim1 + (3.q0*stepchip(3)+stepchip(1))/12.0q0)
+stepphi(4) = dNe*dphit(Neim1 + (1.q0/3.q0)*dNe,Htim1 +&
+& (3.q0*stepHt(3)+stepHt(1))/12.0q0,phitim1 + (3.q0*stepphi(3)+stepphi(1))/12.0q0,&
+&chitim1 + (3.q0*stepchi(3)+stepchi(1))&
+&/12.0q0,phiptim1+&
+ &(3.q0*stepphip(3)+stepphip(1))/12.0q0,chiptim1 + (3.q0*stepchip(3)+stepchip(1))/12.0q0)
+stepchi(4) = dNe*dchit(Neim1 + (1.q0/3.q0)*dNe,Htim1 + (3.q0*stepHt(3)+stepHt(1))&
+&/12.0q0,phitim1 + (3.q0*stepphi(3)+stepphi(1))/12.0q0,&
+&chitim1 + (3.q0*stepchi(3)+stepchi(1))/12.0q0,phiptim1+&
+ &(3.q0*stepphip(3)+stepphip(1))/12.0q0,chiptim1 + (3.q0*stepchip(3)+stepchip(1))/12.0q0)
+stepphip(4) = dNe*dphitp(Neim1 &
+&+ (1.q0/3.q0)*dNe,Htim1 + (3.q0*stepHt(3)+stepHt(1))/12.0q0&
+&,phitim1 + (3.q0*stepphi(3)+stepphi(1))/12.0q0,&
+&chitim1 + (3.q0*stepchi(3)+stepchi(1))/12.0q0&
+&,phiptim1+&
+ &(3.q0*stepphip(3)+stepphip(1))/12.0q0,chiptim1 + (3.q0*stepchip(3)+stepchip(1))/12.0q0)
+stepchip(4) = dNe*dchitp(Neim1 + (1.q0/3.q0)*dNe,Htim1 + (3.q0*stepHt(3)+stepHt(1))&
+&/12.0q0,phitim1 + (3.q0*stepphi(3)+stepphi(1))/12.0q0,&
+&chitim1 + (3.q0*stepchi(3)+stepchi(1))&
+&/12.0q0,phiptim1+&
+ &(3.q0*stepphip(3)+stepphip(1))/12.0q0,chiptim1 + (3.q0*stepchip(3)+stepchip(1))/12.0q0)
 
-K13 = dNe*dHt(Neim1 + dNe/2.0q0,Htim1 + K12/2.0q0,phitim1 + K22/2.0q0,chitim1 + &
-& K32/2.0q0,phitpim1 + K42/2.0q0,chitpim1 + K52/2.0q0)
-K23 = dNe*dphit(Neim1 + dNe/2.0q0,Htim1 + K12/2.0q0,phitim1 + K22/2.0q0,chitim1 + &
-& K32/2.0q0,phitpim1 + K42/2.0q0,chitpim1 + K52/2.0q0)
-K33 = dNe*dchit(Neim1 + dNe/2.0q0,Htim1 + K12/2.0q0,phitim1 + K22/2.0q0,chitim1 + &
-& K32/2.0q0,phitpim1 + K42/2.0q0,chitpim1 + K52/2.0q0)
-K43 = dNe*dphitp(Neim1 + dNe/2.0q0,Htim1 + K12/2.0q0,phitim1 + K22/2.0q0,chitim1 + &
-& K32/2.0q0,phitpim1 + K42/2.0q0,chitpim1 + K52/2.0q0)
-K53 = dNe*dchitp(Neim1 + dNe/2.0q0,Htim1 + K12/2.0q0,phitim1 + K22/2.0q0,chitim1 + &
-& K32/2.0q0,phitpim1 + K42/2.0q0,chitpim1 + K52/2.0q0)
+stepHt(5) = dNe*dHt(Neim1&
+& + 0.5q0*dNe,Htim1 + (3.q0*stepHt(4)+stepHt(1))/8.0q0&
+&,phitim1 + (3.q0*stepphi(4)+stepphi(1)&
+&)/8.0q0,chitim1 + (3.q0*stepchi(4)+stepchi(1)&
+&)/8.0q0&
+&,phiptim1 + (3.q0*stepphip(4)+stepphip(1)&
+&)/8.0q0,chiptim1 + (3.q0*stepchip(4)+stepchip(1))/8.0q0)
+stepphi(5) = dNe*dphit(Neim1 + 0.5q0*dNe,Htim1 + (3.q0*stepHt(4)+stepHt(1))/8.0q0&
+&,phitim1 + (3.q0*stepphi(4)&
+&+stepphi(1))/8.0q0,chitim1 + (3.q0*&
+&stepchi(4)+stepchi(1))/8.0q0,phiptim1 + (3.q0*stepphip(4)+stepphip(1))/8.0q0&
+&,chiptim1 + (3.q0*stepchip(4)+stepchip(1))/8.0q0)
+stepchi(5) = dNe*dchit(Neim1 + 0.5q0*dNe,Htim1 + (3.q0*stepHt(4)+stepHt(1))/8.0q0,phitim1 + (3.q0*stepphi(4)+stepphi(1))/8.0q0&
+&,chitim1 + (3.q0*stepchi(4)+stepchi(1))/8.0q0,phiptim1 + (3.q0*stepphip(4)+stepphip(1))/8.0q0&
+&,chiptim1 + (3.q0*stepchip(4)+stepchip(1))/8.0q0)
+stepphip(5) = dNe*dphitp(Neim1 + 0.5q0*dNe,Htim1 + (3.q0*stepHt(4)+stepHt(1))/8.0q0,phitim1 + (3.q0*stepphi(4)+stepphi(1))/8.0q0&
+&,chitim1 + (3.q0*stepchi(4)+stepchi(1))/8.0q0,phiptim1 + (3.q0*stepphip(4)+stepphip(1))/8.0q0&
+&,chiptim1 + (3.q0*stepchip(4)+stepchip(1))/8.0q0)
+stepchip(5) = dNe*dchitp(Neim1 + 0.5q0*dNe,Htim1 + (3.q0*stepHt(4)+stepHt(1))/8.0q0&
+&,phitim1 + (3.q0*stepphi(4)+stepphi(1))/8.0q0,chitim1 + (3.q0*stepchi(4)+stepchi(1))/8.0q0&
+&,phiptim1 + (3.q0*stepphip(4)+stepphip(1))/8.0q0,chiptim1 + (3.q0*stepchip(4)+stepchip(1))/8.0q0)
 
-K14 = dNe*dHt(Neim1 + dNe,Htim1 + K13,phitim1 + K23,chitim1 + K33,phitpim1 + K43,chitpim1 + K53)
-K24 = dNe*dphit(Neim1 + dNe,Htim1 + K13,phitim1 + K23,chitim1 + K33,phitpim1 + K43,chitpim1 + K53)
-K34 = dNe*dchit(Neim1 + dNe,Htim1 + K13,phitim1 + K23,chitim1 + K33,phitpim1 + K43,chitpim1 + K53)
-K44 = dNe*dphitp(Neim1 + dNe,Htim1 + K13,phitim1 + K23,chitim1 + K33,phitpim1 + K43,chitpim1 + K53)
-K54 = dNe*dchitp(Neim1 + dNe,Htim1 + K13,phitim1 + K23,chitim1 + K33,phitpim1 + K43,chitpim1 + K53)
+stepHt(6) = dNe*dHt(Neim1 + 2.q0*dNe/3.q0,Htim1 + (13.q0*stepHt(1)-27.q0*stepHt(3)+42.q0*stepHt(4)+8.q0*stepHt(5))/54.0q0&
+&,phitim1 + (13.q0*stepphi(1)-27.q0*stepphi(3)+42.q0*stepphi(4)+8.q0*stepphi(5))/54.0q0&
+&,chitim1+(13.q0*stepchi(1)-27.q0*stepchi(3)+42.q0*stepchi(4)+8.q0*stepchi(5))/54.0q0&
+&,phiptim1 + (13.q0*stepphip(1)-27.q0*stepphip(3)&
+&+42.q0*stepphip(4)+8.q0*stepphip(5)&
+&)/54.0q0,chiptim1 + (13.q0*stepchip(1)-27.q0*stepchip(3)&
+&+42.q0*stepchip(4)+8.q0*stepchip(5))/54.0q0)
+stepphi(6) = dNe*dphit(Neim1 + 2.q0*dNe/3.q0,Htim1 + (13.q0*stepHt(1)-27.q0*&
+&stepHt(3)+42.q0*stepHt(4)&
+&+8.q0*stepHt(5))/54.0q0&
+&,phitim1 + (13.q0*stepphi(1)-27.q0&
+&*stepphi(3)+42.q0*stepphi(4)&
+&+8.q0*stepphi(5))/54.0q0,chitim1+(13.q0*stepchi(1)-27.q0*stepchi(3)&
+&+42.q0*stepchi(4)+8.q0&
+&*stepchi(5))/54.0q0,&
+&phiptim1 + &
+&(13.q0*stepphip(1)-27.q0*stepphip(3)&
+&+42.q0*stepphip(4)+8.q0*stepphip(5))/54.0q0,chiptim1 + &
+&(13.q0*stepchip(1)-27.q0*stepchip(3)&
+&+42.q0*stepchip(4)+8.q0*stepchip(5)&
+&)/54.0q0)
+stepchi(6) = dNe*dchit(Neim1 + 2.q0*dNe/3.q0,Htim1 + (13.q0*stepHt(1)-27.q0*stepHt(3)&
+&+42.q0*stepHt(4)+8.q0*stepHt(5))&
+&/54.0q0,phitim1 + &
+&(13.q0*stepphi(1)-27.q0&
+&*stepphi(3)+42.q0*stepphi(4)+8.q0*stepphi(5)&
+&)/54.0q0,chitim1+(13.q0*stepchi(1)&
+&-27.q0*stepchi(3)+42.q0*stepchi(4)+8.q0*stepchi(5)&
+&)/54.0q0,phiptim1 + &
+&(13.q0*stepphip(1)-27.q0*stepphip(3)+&
+&42.q0*stepphip(4)+8.q0*&
+&stepphip(5))/54.0q0,chiptim1 + (13.q0*stepchip(1)-27.q0*stepchip(3)+42.q0*stepchip(4)+8.q0*stepchip(5))/54.0q0)
+stepphip(6) = dNe*dphitp(Neim1 &
+&+ 2.q0*dNe/3.q0,Htim1 + (13.q0*stepHt(1)-27.q0*stepHt(3)&
+&+42.q0*stepHt(4)+8.q0*stepHt(5))/54.0q0,phitim1 +&
+& (13.q0*stepphi(1)-27.q0*stepphi(3)&
+&+42.q0*stepphi(4)+8.q0*stepphi(5))/54.0q0,chitim1+(13.q0*stepchi(1)-27.q0*stepchi(3)&
+&+42.q0*stepchi(4)+8.q0*stepchi(5)&
+&)/54.0q0,phiptim1 + &
+&(13.q0*stepphip(1)-27.q0*stepphip(3)+42.q0&
+&*stepphip(4)+8.q0*stepphip(5))/54.0q0,chiptim1 + (13.q0*stepchip(1)-27.q0*stepchip(3)&
+&+42.q0*stepchip(4)+8.q0*stepchip(5))/54.0q0)
+stepchip(6) = dNe*dchitp(Neim1 + 2.q0*dNe/3.q0,Htim1 + (13.q0*stepHt(1)-27.q0*stepHt(3)&
+&+42.q0*stepHt(4)+8.q0*stepHt(5))/54.0q0,phitim1 + &
+&(13.q0*stepphi(1)-27.q0*stepphi(3)&
+&+42.q0*stepphi(4)+8.q0*stepphi(5))/54.0q0,chitim1+(13.q0*stepchi(1)-27.q0*stepchi(3)&
+&+42.q0*stepchi(4)+8.q0*stepchi(5)&
+&)/54.0q0,phiptim1 + &
+&(13.q0*stepphip(1)-27.q0*stepphip(3)+42.q0*stepphip(4)+8.q0*stepphip(5))/54.0q0,chiptim1 + &
+&(13.q0*stepchip(1)-27.q0*stepchip(3)+42.q0*stepchip(4)+8.q0*stepchip(5))/54.0q0)
+
+stepHt(7) = dNe*dHt(Neim1 + 1.q0*dNe/6.q0,Htim1 + (389.q0*stepHt(1)-54.q0*stepHt(3)&
+&+966.q0*stepHt(4)-824.q0*stepHt(5)&
+&+243.q0*stepHt(6))/4320.q0,phitim1 + &
+&(389.q0*stepphi(1)-54.q0*stepphi(3)&
+&+966.q0*stepphi(4)-824.q0*stepphi(5)&
+&+243.q0*stepphi(6))/4320.q0,&
+&chitim1+ (389.q0*stepchi(1)&
+&-54.q0&
+&*stepchi(3)+966.q0*stepchi(4)&
+&-824.q0*stepchi(5)+243.q0*stepchi(6))/4320.q0,&
+&phiptim1 + (389.q0*stepphip(1)-54.q0*stepphip(3)+&
+&966.q0*stepphip(4)-824.q0*stepphip(5)+243.q0*stepphip(6))/4320.q0,&
+&chiptim1+ (389.q0*stepchip(1)-&
+&54.q0*stepchip(3)+966.q0*stepchip(4)-&
+&824.q0*stepchip(5)+243.q0*stepchip(6))/4320.q0)
+
+
+
+stepphi(7) = dNe*dphit(Neim1 + 1.q0*dNe/6.q0,Htim1 + (389.q0*stepHt(1)-54.q0*stepHt(3)&
+&+966.q0*stepHt(4)-824.q0*stepHt(5)&
+&+243.q0*stepHt(6))/4320.q0,phitim1 +&
+&(389.q0*stepphi(1)-54.q0*stepphi(3)&
+&+966.q0*stepphi(4)-824.q0*stepphi(5)&
+&+243.q0*stepphi(6))/4320.q0,chitim1+ &
+&(389.q0*stepchi(1)-54.q0*stepchi(3)&
+&+966.q0*stepchi(4)-824.q0*stepchi(5)&
+&+243.q0*stepchi(6))/4320.q0,phiptim1 + &
+&(389.q0*stepphip(1)-54.q0*stepphip(3)+966.q0*stepphip(4)-824.q0*stepphip(5)+243.q0*stepphip(6))/4320.q0,chiptim1+ &
+&(389.q0*stepchip(1)-54.q0*stepchip(3)+966.q0*stepchip(4)-824.q0*stepchip(5)+243.q0*stepchip(6))/4320.q0)
+stepchi(7) = dNe*dchit(Neim1 + 1.q0*dNe/6.q0,Htim1 + (389.q0*stepHt(1)-54.q0*stepHt(3)&
+&+966.q0*stepHt(4)-824.q0*stepHt(5)&
+&+243.q0*stepHt(6))/4320.q0,phitim1 +  (389.q0*stepphi(1)-54.q0*stepphi(3)&
+&+966.q0*stepphi(4)-824.q0*stepphi(5)&
+&+243.q0*stepphi(6))/4320.q0,chitim1+ (389.q0*stepchi(1)-54.q0*stepchi(3)&
+&+966.q0*stepchi(4)-824.q0*stepchi(5)&
+&+243.q0*stepchi(6))/4320.q0,phiptim1 +&
+& (389.q0*stepphip(1)-54.q0*stepphip(3)+966.q0&
+&*stepphip(4)-824.q0*stepphip(5)+243.q0*stepphip(6))/4320.q0,chiptim1+ &
+&(389.q0*stepchip(1)-54.q0*stepchip(3)+966.q0*stepchip(4)-824.q0*stepchip(5)+243.q0*stepchip(6))/4320.q0)
+stepphip(7) = dNe*dphitp(Neim1 +&
+& 1.q0*dNe/6.q0,Htim1 + (389.q0*stepHt(1)-54.q0*stepHt(3)+&
+&966.q0*stepHt(4)-824.q0*&
+&stepHt(5)+243.q0*stepHt(6))/4320.q0,phitim1 +  (389.q0*stepphi(1)-54.q0*stepphi(3)+&
+&966.q0*stepphi(4)-824.q0*stepphi(5)&
+&+243.q0*stepphi(6))/4320.q0,chitim1+ (389.q0*stepchi(1)-54.q0*stepchi(3)+966.q0*&
+&stepchi(4)-824.q0*stepchi(5)+243.q0*stepchi(6))/4320.q0,phiptim1 + &
+&(389.q0*stepphip(1)-54.q0*stepphip(3)+966.q0&
+&*stepphip(4)-824.q0*stepphip(5)+243.q0*stepphip(6)&
+&)/4320.q0,chiptim1+ (389.q0*stepchip(1)&
+&-54.q0*stepchip(3)+&
+&966.q0*stepchip(4)-824.q0*stepchip(5)+243.q0*stepchip(6))/4320.q0)
+stepchip(7) = dNe*dchitp(Neim1 + 1.q0*dNe/6.q0,Htim1 + (389.q0*stepHt(1)-54.q0*stepHt(3)&
+&+966.q0*stepHt(4)-824.q0*stepHt(5)&
+&+243.q0*stepHt(6))/4320.q0,phitim1 +&
+&(389.q0*stepphi(1)-54.q0*stepphi(3)+966.q0*stepphi(4)-824.q0*stepphi(5)+243.q0*stepphi(6))/4320.q0,chitim1+ &
+&(389.q0*stepchi(1)-54.q0*stepchi(3)&
+&+966.q0*stepchi(4)-824.q0*stepchi(5)+243.q0*stepchi(6))/4320.q0,&
+&phiptim1 +(389.q0*stepphip(1)-54.q0*stepphip(3)&
+&+966.q0*stepphip(4)-824.q0*stepphip(5)+243.q0*stepphip(6))/4320.q0,chiptim1+ &
+&(389.q0*stepchip(1)-54.q0*stepchip(3)+966.q0*stepchip(4)-824.q0*stepchip(5)+243.q0*stepchip(6))/4320.q0)
+! 
+stepHt(8) = dNe*dHt(Neim1 + dNe,Htim1 + (-231.q0*stepHt(1)+81.q0*stepHt(3)&
+&-1164.q0*stepHt(4)+656.q0*stepHt(5)-122.q0*stepHt(6)+800.q0*stepHt(7))/20.q0&
+&,phitim1 + (-231.q0*stepphi(1)+81.q0*stepphi(3)&
+&-1164.q0*stepphi(4)+656.q0*stepHt(5)-122.q0*stepphi(6)+800.q0*stepphi(7)&
+&)/20.q0&
+&,chitim1+ (-231.q0*stepchi(1)+81.q0*stepchi(3)&
+&-1164.q0*stepchi(4)+656.q0*stepchi(5)&
+&-122.q0*stepchi(6)+800.q0*stepchi(7))/20.q0&
+&,phiptim1 + (-231.q0*stepphip(1)+81.q0*stepphip(3)-&
+&1164.q0*stepphip(4)+656.q0*stepphip(5)-122.q0*stepphip(6)+800.q0*stepphip(7))/20.q0&
+&,chiptim1+ (-231.q0*stepchip(1)&
+&+81.q0*stepchip(3)-&
+&1164.q0*stepchip(4)+656.q0*stepchip(5)-122.q0*stepchip(6)+800.q0*stepchip(7))/20.q0)
+
+
+
+stepphi(8) = dNe*dphit(Neim1 + dNe,Htim1 + (-231.q0*stepHt(1)+81.q0*stepHt(3)-&
+&1164.q0*stepHt(4)+656.q0*&
+&stepHt(5)-122.q0*stepHt(6)&
+&+800.q0*stepHt(7))/20.q0,phitim1 + (-231.q0*stepphi(1)+81.q0*stepphi(3)&
+&-1164.q0*stepphi(4)+656.q0*stepHt(5)-122.q0*stepphi(6)+800.q0*stepphi(7)&
+&)/20.q0&
+&,chitim1+ (-231.q0*stepchi(1)+81.q0&
+&*stepchi(3)-1164.q0&
+&*stepchi(4)+656.q0*stepchi(5)&
+&-122.q0*stepchi(6)+800.q0*stepchi(7))/20.q0,phiptim1 + (-231.q0*stepphip(1)+81.q0*stepphip(3)-1164.q0*stepphip(4)+656.q0&
+&*stepphip(5)-122.q0*stepphip(6)+800.q0*stepphip(7))/20.q0&
+&,chiptim1+ (-231.q0*stepchip(1)+81.q0*stepchip(3)-1164.q0&
+&*stepchip(4)+656.q0*stepchip(5)-122.q0*stepchip(6)+800.q0*stepchip(7))/20.q0)
+stepchi(8) = dNe*dchit(Neim1 + dNe,Htim1 + (-231.q0&
+&*stepHt(1)+81.q0*stepHt(3)-&
+&1164.q0*stepHt(4)+656.q0*stepHt(5)-122.q0*stepHt(6)+800.q0*stepHt(7))/20.q0&
+&,phitim1 + (-231.q0*stepphi(1)&
+&+81.q0*stepphi(3)-&
+&1164.q0*stepphi(4)+656.q0*stepHt(5)-122.q0*stepphi(6)+800.q0*stepphi(7))/20.q0,chitim1+ (-231.q0*stepchi(1)+81.q0*stepchi(3)&
+&-1164.q0*stepchi(4)+656.q0*stepchi(5)-122.q0*stepchi(6)+800.q0*stepchi(7))/20.q0&
+&,phiptim1 + (-231.q0*stepphip(1)+81.q0*stepphip(3)-&
+&1164.q0*stepphip(4)+656.q0*stepphip(5)-122.q0*stepphip(6)+800.q0*stepphip(7))/20.q0,chiptim1+ (-231.q0&
+&*stepchip(1)+81.q0*stepchip(3)-&
+&1164.q0*stepchip(4)+656.q0*stepchip(5)-122.q0*stepchip(6)+800.q0*stepchip(7))/20.q0)
+stepphip(8) = dNe*dphitp(Neim1 + dNe,Htim1 + (-231.q0*stepHt(1)+81.q0*stepHt(3)-&
+&1164.q0*stepHt(4)+656.q0*stepHt(5)-&
+&122.q0*stepHt(6)+800.q0*stepHt(7)&
+&)/20.q0,phitim1 + (-231.q0*stepphi(1)+81.q0*stepphi(3)-1164.q0*stepphi(4)+656.q0*stepHt(5)&
+&-122.q0*stepphi(6)+800.q0*stepphi(7)&
+&)/20.q0&
+&,chitim1+ (-231.q0*stepchi(1)+81.q0*stepchi(3)-&
+&1164.q0*stepchi(4)+656.q0*stepchi(5)-122.q0*stepchi(6)+800.q0*stepchi(7))/20.q0,phiptim1 + (-231.q0*stepphip(1)+81.q0*stepphip(3)-&
+&1164.q0*stepphip(4)+656.q0&
+&*stepphip(5)-122.q0*stepphip(6)+800.q0*stepphip(7))/20.q0,chiptim1+ (-231.q0*stepchip(1)+81.q0*stepchip(3)-&
+&1164.q0*stepchip(4)+656.q0*stepchip(5)-122.q0*stepchip(6)+800.q0*stepchip(7))/20.q0)
+stepchip(8) = dNe*dchitp(Neim1 + dNe,Htim1 + (-231.q0*stepHt(1)+81.q0*stepHt(3)-&
+&1164.q0*stepHt(4)+656.q0*stepHt(5)&
+&-122.q0*stepHt(6)+800.q0*stepHt(7)&
+&)/20.q0,phitim1 + (-231.q0&
+&*stepphi(1)+81.q0*stepphi(3)-&
+&1164.q0*stepphi(4)+656.q0*stepHt(5)-&
+&122.q0*stepphi(6)+800.q0*stepphi(7))/20.q0,chitim1+ (-231.q0*stepchi(1)&
+&+81.q0*stepchi(3)-&
+&1164.q0*stepchi(4)&
+&+656.q0*stepchi(5)-&
+&122.q0*stepchi(6)+800.q0*stepchi(7))/20.q0,phiptim1 + (-231.q0*stepphip(1)+81.q0*stepphip(3)-&
+&1164.q0*stepphip(4)+656.q0*stepphip(5)-122.q0*stepphip(6)+800.q0*stepphip(7))/20.q0,chiptim1+ (-231.q0*stepchip(1)&
+&+81.q0*stepchip(3)-&
+&1164.q0*stepchip(4)+656.q0*stepchip(5)-122.q0*stepchip(6)+800.q0*stepchip(7))/20.q0)
+! 
+! 
+stepHt(9) = dNe*dHt(Neim1 + (5./6.)*dNe,Htim1 + (-127.q0*stepHt(1)+18.q0*stepHt(3)&
+&-678.q0*stepHt(4)+456.q0*stepHt(5)&
+&-9.q0*stepHt(6)+576.q0*stepHt(7)+4.q0*stepHt(8))&
+&/288.q0,phitim1 + (-127.q0*stepphi(1)+18.q0*stepphi(3)&
+&-678.q0*stepphi(4)+456.q0*stepphi(5)&
+&-9.q0*stepphi(6)+576.q0*stepphi(7)+4.q0*stepphi(8))/288.q0,&
+&chitim1+ (-127.q0*stepchi(1)+18.q0*stepchi(3)&
+&-678.q0*stepchi(4)&
+&+456.q0*stepchi(5)-9.q0*stepchi(6)+576.q0&
+&*stepchi(7)+4.q0*stepchi(8))/288.q0,phiptim1 + (-127.q0*stepphip(1)+18.q0*stepphip(3)-678.q0&
+&*stepphip(4)+456.q0*stepphip(5)-9.q0*stepphip(6)&
+&+576.q0*stepphip(7)+4.q0*stepphip(8))/288.q0,chiptim1+ (-127.q0*stepchip(1)+18.q0*stepchip(3)-&
+&678.q0*stepchip(4)+456.q0*stepchip(5)-9.q0*stepchip(6)+576.q0*stepchip(7)+4.q0*stepchip(8))/288.q0)
+
+
+
+stepphi(9) = dNe*dphit(Neim1 +&
+& (5./6.)*dNe,Htim1 + (-127.q0*stepHt(1)+18.q0*stepHt(3)&
+&-678.q0*stepHt(4)+456.q0*stepHt(5)-9.q0*stepHt(6)+576.q0*stepHt(7)+4.q0*stepHt(8)&
+&)/288.q0&
+&,phitim1 + (-127.q0*stepphi(1)&
+&+18.q0*stepphi(3)-&
+&678.q0*stepphi(4)+456.q0*stepphi(5)&
+&-9.q0*stepphi(6)+576.q0*stepphi(7)+4.q0*stepphi(8)&
+&)/288.q0,chitim1+ (-127.q0*stepchi(1)+18.q0*stepchi(3)-678.q0&
+&*stepchi(4)+456.q0*stepchi(5)-9.q0*stepchi(6)+576.q0*stepchi(7)+4.q0*stepchi(8))/&
+&288.q0,phiptim1 + (-127.q0*stepphip(1)+18.q0*stepphip(3)-678.q0&
+&*stepphip(4)+456.q0*stepphip(5)-9.q0*stepphip(6)+576.q0*stepphip(7)+4.q0*stepphip(8))/288.q0&
+&,chiptim1+ (-127.q0*stepchip(1)&
+&+18.q0*stepchip(3)-678.q0&
+&*stepchip(4)+456.q0*stepchip(5)-9.q0*stepchip(6)+576.q0*stepchip(7)+4.q0*stepchip(8))/288.q0)
+stepchi(9) = dNe*dchit(Neim1 + (5./6.)*dNe,Htim1 + (-127.q0*stepHt(1)+18.q0*&
+&stepHt(3)-678.q0&
+&*stepHt(4)+456.q0*stepHt(5)&
+&-9.q0*stepHt(6)+576.q0*stepHt(7)&
+&+4.q0*stepHt(8))/288.q0&
+&,phitim1 + (-127.q0*stepphi(1)+18.q0*stepphi(3)-678.q0&
+&*stepphi(4)+456.q0*stepphi(5)-9.q0*stepphi(6)+576.q0*stepphi(7)+4.q0*stepphi(8))/288.q0&
+&,chitim1+ (-127.q0*stepchi(1)+18.q0*stepchi(3)&
+&-678.q0&
+&*stepchi(4)+456.q0*stepchi(5)-9.q0*stepchi(6)+576.q0*stepchi(7)+4.q0*stepchi(8))/288.q0&
+&,phiptim1 + (-127.q0*stepphip(1)+18.q0*stepphip(3)-678.q0&
+&*stepphip(4)+456.q0*stepphip(5)-9.q0*stepphip(6)+576.q0*stepphip(7)+4.q0*stepphip(8))/288.q0&
+&,chiptim1+ (-127.q0*stepchip(1)+18.q0*stepchip(3)-678.q0&
+&*stepchip(4)+456.q0*stepchip(5)-9.q0*stepchip(6)+576.q0*stepchip(7)+4.q0*stepchip(8))/288.q0)
+stepphip(9) = dNe*dphitp(Neim1 + (5./6.)*dNe,Htim1 + (-127.q0*stepHt(1)+18.q0*stepHt(3)&
+&-678.q0&
+&*stepHt(4)+456.q0*stepHt(5)-9.q0*stepHt(6)&
+&+576.q0*stepHt(7)+4.q0*stepHt(8))/288.q0&
+&,phitim1 + (-127.q0*stepphi(1)+18.q0*stepphi(3)-678.q0&
+&*stepphi(4)+456.q0*stepphi(5)-9.q0*&
+&stepphi(6)+576.q0*stepphi(7)+4.q0*stepphi(8))/288.q0,chitim1+ (-127.q0*stepchi(1)+18.q0*stepchi(3)-678.q0&
+&*stepchi(4)+456.q0*stepchi(5)-9.q0*stepchi(6)+576.q0*stepchi(7)+4.q0*stepchi(8))/288.q0&
+&,phiptim1 + (-127.q0*stepphip(1)+18.q0*stepphip(3)-678.q0&
+&*stepphip(4)+456.q0*stepphip(5)-9.q0*stepphip(6)+576.q0*stepphip(7)+4.q0*stepphip(8))/288.q0&
+&,chiptim1+ (-127.q0*stepchip(1)+18.q0*stepchip(3)-678.q0&
+&*stepchip(4)+456.q0*stepchip(5)-9.q0*stepchip(6)+576.q0*stepchip(7)+4.q0*stepchip(8))/288.q0)
+stepchip(9) = dNe*dchitp(Neim1 + (5./6.)*dNe,Htim1 + (-127.q0*stepHt(1)+18.q0*stepHt(3)-678.q0&
+&*stepHt(4)+456.q0*stepHt(5)&
+&-9.q0*stepHt(6)+576.q0&
+&*stepHt(7)+4.q0*stepHt(8))/288.q0,phitim1 + (-127.q0*stepphi(1)+18.q0*stepphi(3)&
+&-678.q0&
+&*stepphi(4)+456.q0*stepphi(5)&
+&-9.q0*stepphi(6)+576.q0*stepphi(7)+4.q0*stepphi(8))/288.q0,chitim1+ (-127.q0*stepchi(1)+18.q0*stepchi(3)-678.q0&
+&*stepchi(4)+456.q0*stepchi(5)-9.q0*stepchi(6)+576.q0*stepchi(7)+4.q0*stepchi(8))/288.q0,phiptim1&
+& + (-127.q0*stepphip(1)+18.q0*stepphip(3)-678.q0&
+&*stepphip(4)+456.q0*stepphip(5)-9.q0*stepphip(6)&
+&+576.q0*stepphip(7)+4.q0*stepphip(8))/288.q0,chiptim1+ (-127.q0*stepchip(1)+18.q0*stepchip(3)-678.q0&
+&*stepchip(4)+456.q0*stepchip(5)-9.q0*stepchip(6)+576.q0*stepchip(7)+4.q0*stepchip(8))/288.q0)
+
+
+stepHt(10) = dNe*dHt(Neim1 + dNe,Htim1 + (1481.q0*stepHt(1)-81.q0*stepHt(3)+7104.q0&
+&*stepHt(4)-3376.q0*stepHt(5)+72.q0*stepHt(6)-5040.q0&
+&*stepHt(7)-60.q0*stepHt(8)+720.q0*stepHt(9))/820.q0,phitim1 + (1481.q0*stepphi(1)-81.q0*stepphi(3)+7104.q0&
+&*stepphi(4)-3376.q0*stepphi(5)+72.q0*stepphi(6)-5040.q0&
+&*stepphi(7)-60.q0*stepphi(8)+720.q0*stepphi(9))/820.q0,chitim1+ (1481.q0*stepchi(1)-81.q0*stepchi(3)+7104.q0&
+&*stepchi(4)-3376.q0*stepchi(5)+72.q0*stepchi(6)-5040.q0&
+&*stepchi(7)-60.q0*stepchi(8)+720.q0*stepchi(9))/820.q0,phiptim1 + (1481.q0*stepphip(1)-81.q0*stepphip(3)+7104.q0&
+&*stepphip(4)-3376.q0*stepphip(5)+72.q0*stepphip(6)-5040.q0&
+&*stepphip(7)-60.q0*stepphip(8)+720.q0*stepphip(9))/820.q0,chiptim1+ (1481.q0*stepchip(1)-81.q0*stepchip(3)+7104.q0&
+&*stepchip(4)-3376.q0*stepchip(5)+72.q0*stepchip(6)-5040.q0&
+&*stepchip(7)-60.q0*stepchip(8)+720.q0*stepchip(9))/820.q0)
+
+
+
+stepphi(10) = dNe*dphit(Neim1 + dNe,Htim1 + &
+&(1481.q0*stepHt(1)-81.q0*stepHt(3)+7104.q0&
+&*stepHt(4)-3376.q0*stepHt(5)&
+&+72.q0*stepHt(6)-5040.q0*stepHt(7)&
+&-60.q0*stepHt(8)+720.q0*stepHt(9))/820.q0,phitim1 &
+&+ (1481.q0*stepphi(1)-81.q0*stepphi(3)&
+&+7104.q0&
+&*stepphi(4)-3376.q0*stepphi(5)+72.q0*stepphi(6)-5040.q0&
+&*stepphi(7)-60.q0*stepphi(8)+720.q0*stepphi(9))/820.q0,chitim1+ (1481.q0*stepchi(1)-81.q0*stepchi(3)+7104.q0&
+&*stepchi(4)-3376.q0*stepchi(5)+72.q0*stepchi(6)-&
+&5040.q0*stepchi(7)-60.q0*stepchi(8)+720.q0&
+&*stepchi(9))/820.q0,phiptim1 + (1481.q0*stepphip(1)-81.q0*stepphip(3)+7104.q0&
+&*stepphip(4)-3376.q0&
+&*stepphip(5)&
+&+72.q0*stepphip(6)-5040.q0&
+&*stepphip(7)-60.q0*stepphip(8)+720.q0*stepphip(9))/820.q0,chiptim1+ (1481.q0*stepchip(1)-81.q0*stepchip(3)+7104.q0&
+&*stepchip(4)-3376.q0*stepchip(5)+72.q0*&
+&stepchip(6)-5040.q0*stepchip(7)-60.q0*stepchip(8)+720.q0*stepchip(9))/820.q0)
+stepchi(10) = dNe*dchit(Neim1 + dNe,Htim1 + (1481.q0*stepHt(1)-81.q0*stepHt(3)&
+&+7104.q0&
+&*stepHt(4)-3376.q0*stepHt(5)&
+&+72.q0*stepHt(6)-5040.q0*stepHt(7)&
+&-60.q0*stepHt(8)+720.q0*stepHt(9)&
+&)/820.q0,phitim1 + (1481.q0*stepphi(1)-81.q0*stepphi(3)&
+&+7104.q0&
+&*stepphi(4)-3376.q0*stepphi(5)&
+&+72.q0*stepphi(6)-5040.q0*stepphi(7)-60.q0*stepphi(8)&
+&+720.q0*stepphi(9))/820.q0,chitim1+ &
+&(-1481.q0*stepchi(1)&
+&-81.q0*stepchi(3)&
+&+7104.q0&
+&*stepchi(4)-3376.q0*stepchi(5)&
+&+72.q0*stepchi(6)-5040.q0*stepchi(7)-&
+&60.q0*stepchi(8)+720.q0*stepchi(9))/820.q0,phiptim1 + (1481.q0*stepphip(1)-81.q0*stepphip(3)+7104.q0&
+&*stepphip(4)-3376.q0*stepphip(5)+72.q0*stepphip(6)&
+&-5040.q0*stepphip(7)-60.q0*stepphip(8)&
+&+720.q0*stepphip(9))/820.q0,chiptim1+ (1481.q0*stepchip(1)-81.q0*stepchip(3)+7104.q0&
+&*stepchip(4)-3376.q0*stepchip(5)+72.q0*stepchip(6)-5040.q0*stepchip(7)-60.q0*stepchip(8)+720.q0*stepchip(9))/820.q0)
+stepphip(10) = dNe*dphitp(Neim1 + dNe,Htim1 + (1481.q0*&
+&stepHt(1)-81.q0*stepHt(3)&
+&+7104.q0&
+&*stepHt(4)-3376.q0*stepHt(5)+72.q0*stepHt(6)&
+&-5040.q0*stepHt(7)-60.q0*stepHt(8)+720.q0*stepHt(9))/820.q0,phitim1 + (1481.q0*stepphi(1)-81.q0*stepphi(3)+7104.q0&
+&*stepphi(4)-3376.q0*stepphi(5)&
+&+72.q0*stepphi(6)-5040.q0*stepphi(7)&
+&-60.q0*stepphi(8)+720.q0*stepphi(9)&
+&)/820.q0,chitim1+ (1481.q0*stepchi(1)-81.q0*stepchi(3)&
+&+7104.q0&
+&*stepchi(4)-3376.q0*stepchi(5)&
+&+72.q0*stepchi(6)-5040.q0*stepchi(7)-&
+&60.q0*stepchi(8)+720.q0*stepchi(9))/820.q0,phiptim1 + (1481.q0*stepphip(1)-81.q0*stepphip(3)+7104.q0&
+&*stepphip(4)-3376.q0*stepphip(5)+72.q0*stepphip(6)-5040.q0*stepphip(7)-60.q0*stepphip(8)+720.q0*stepphip(9))/820.q0&
+&,chiptim1+ (-1481.q0*stepchip(1)-81.q0*stepchip(3)+7104.q0&
+&*stepchip(4)-3376.q0*stepchip(5)+72.q0*stepchip(6)-5040.q0*stepchip(7)-60.q0*stepchip(8)+720.q0*stepchip(9))/820.q0)
+stepchip(10) = dNe*dchitp(Neim1 + dNe,Htim1 + (1481.q0*stepHt(1)-81.q0*stepHt(3)&
+&+7104.q0&
+&*stepHt(4)-3376.q0*stepHt(5)&
+&+72.q0*stepHt(6)-5040.q0*stepHt(7)-60.q0*stepHt(8)+720.q0*stepHt(9))/820.q0,phitim1 + (1481.q0*stepphi(1)-81.q0*stepphi(3)&
+&+7104.q0&
+&*stepphi(4)-3376.q0*stepphi(5)&
+&+72.q0*stepphi(6)-5040.q0*stepphi(7)-60.q0*stepphi(8)+720.q0*stepphi(9))/820.q0,chitim1+ (1481.q0*stepchi(1)-81.q0*stepchi(3)&
+&+7104.q0&
+&*stepchi(4)-3376.q0*stepchi(5)&
+&+72.q0*stepchi(6)-5040.q0*stepchi(7)-60.q0&
+&*stepchi(8)+720.q0*stepchi(9))/820.q0,phiptim1 + (1481.q0*stepphip(1)-&
+&81.q0*stepphip(3)+7104.q0&
+&*stepphip(4)-3376.q0*stepphip(5)+72.q0*&
+&stepphip(6)-5040.q0*stepphip(7)-60.q0*stepphip(8)+720.q0*stepphip(9))/820.q0&
+&,chiptim1+ (1481.q0*stepchip(1)-81.q0*stepchip(3)+7104.q0&
+&*stepchip(4)-3376.q0*stepchip(5)+72.q0*stepchip(6)-5040.q0*stepchip(7)-60.q0*stepchip(8)+720.q0*stepchip(9))/820.q0)
+
+
+
+
+
+
+
+
+
+
+
+
+
+!print*,Hti,stepHt(1),stepHt(2),stepHt(3),stepHt(4),stepHt(5),stepHt(6),stepHt(7),stepHt(8),stepHt(9),stepHt(10)
+
 
 Nei = Neim1 + dNe
-Hti = Htim1 + (1.0q0/6.0q0)*(K11 + 2.0q0*K12 + 2.0q0*K13 + K14)
-phiti = phitim1 + (1.0q0/6.0q0)*(K21 + 2.0q0*K22 + 2.0q0*K23 + K24)
-chiti = chitim1 + (1.0q0/6.0q0)*(K31 + 2.0q0*K32 + 2.0q0*K33 + K34)
-phitpi = phitpim1 + (1.0q0/6.0q0)*(K41 + 2.0q0*K42 + 2.0q0*K43 + K44)
-chitpi = chitpim1 + (1.0q0/6.0q0)*(K51 + 2.0q0*K52 + 2.0q0*K53 + K54)
+!print*,'goof'
+Hti = Htim1 + (1.0q0/840.0q0)*(41.q0*stepHt(1) + 27.0q0*stepHt(4) + 272.0q0&
+&*stepHt(5) + 27.q0*stepHt(6)+216.q0*stepHt(7)&
+&+216.q0*stepHt(9)+41.q0*stepHt(10))
+
+!print*,Hti,K11,stepHt(2),stepHt(3),stepHt(4),stepHt(5),stepHt(6),stepHt(7),stepHt(8),stepHt(9),stepHt(10)
+
+
+phiti = phitim1 + (1.0q0/840.0q0)*(41.q0*stepphi(1) + 27.0q0*stepphi(4)&
+& + 272.0q0*stepphi(5)&
+& + 27.q0*stepphi(6)&
+&+216.q0*stepphi(7)&
+&+216.q0*stepphi(9)&
+&+41.q0*stepphi(10))
+chiti = chitim1 + (1.0q0/840.0q0)*(41.q0*stepchi(1)&
+& + 27.0q0*stepchi(4) + 272.0q0*stepchi(5)&
+& + 27.q0*stepchi(6)+216.q0*stepchi(7)+216.q0*stepchi(9)+41.q0*stepchi(10))
+phitpi = phiptim1 + (1.0q0&
+&/840.0q0)*(41.q0*stepphip(1) + 27.0q0*stepphip(4) + 272.0q0*stepphip(5) + 27.q0*stepphip(6)+216.q0*stepphip(7)+&
+&216.q0*stepphip(9)+41.q0*stepphip(10))
+chitpi = chiptim1 &
+&+ (1.0q0/840.0q0)*(41.q0*stepchip(1) &
+&+ 27.0q0*stepchip(4) + 272.0q0*stepchip(5) + 27.q0*stepchip(6)+216.q0*stepchip(7)+216.q0*stepchip(9)+41.q0*stepchip(10))
 
 if (Nei >= Newrite + dNewrite) then
-    ! print *,Nei,Hti,phiti,chiti,"endl"
+    print *,Nei,Hti,phiti,chiti,"endl"
     ! write(11,*) Nei,Hti,phiti,chiti,"endl"
     i = i + 1
     arrayNe(i) = Nei
     arrayHt(i) = Hti
     Newrite = Nei
 end if
-
+!print*,Hti
 end do
-
+print*,Nei,Ne0approx,Hti
 imax = i
 
 ! print *,dNe
@@ -698,11 +1100,9 @@ do i = 1,imax
     ! write(11,*) arraya(i),arrayHt(i)*arraya(i)**2,HtLCDM(arraya(i),0.3q0,1.0q-4)
 end do
 !output rescale factors DG 12/23
-rs_rad=exp(4.q0*(Ne0approx-Ne0))
-rs_matter=exp(3.q0*(Ne0approx-Ne0))
+rs_rad=exp(4.e0*(Ne0approx-Ne0))
+rs_matter=exp(3.e0*(Ne0approx-Ne0))
 ai_new=exp(-Ne0)
-
-!write(*,*) (Ne0approx-Ne0)
 !write(*,*) rs_rad,rs_matter,ai_new
 !write(*,*) Ne0approx,Ne0
 ! close(11)
@@ -840,8 +1240,8 @@ function dphitp(Ne,Ht,phit,chit,phitp,chitp)
     real(16) :: E
     common /constants/ E
 
-
-    !DG 12/23 new common block with rescale params
+    
+    !DG 12/23 new common block with rescale params        
     real(16) :: rhomtinitial,rhortinitial,lambdaphit,lambdachit,phitinitial,chitinitial
     real(16) :: rs_matter,rs_rad,ai_new
     common /inputparametersofHta/ rhomtinitial,rhortinitial,lambdaphit,lambdachit, &
@@ -867,12 +1267,12 @@ function dchitp(Ne,Ht,phit,chit,phitp,chitp)
     real(16) :: E
     common /constants/ E
 
-
+    
     real(16) :: rhomtinitial,rhortinitial,lambdaphit,lambdachit,phitinitial,chitinitial
     real(16) :: rs_matter,rs_rad,ai_new
     common /inputparametersofHta/ rhomtinitial,rhortinitial,lambdaphit,lambdachit, &
             & phitinitial,chitinitial,rs_matter,rs_rad,ai_new
-
+    
 
     dchitp = (-6.0q0*lambdachit*chit**3.0q0 + &
              &    (chitp*(3.0q0*E**Ne*rhomtinitial + 4.0q0*rhortinitial + &

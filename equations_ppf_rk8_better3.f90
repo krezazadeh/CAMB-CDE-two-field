@@ -236,7 +236,7 @@ real(dl) :: grhoa20,dtauda0,H0dtauda
 real(16) :: Omegam0,Omegar0,rs_matter,rs_rad,ai_new
 real(16) :: rhomtinitial,rhortinitial,lambdaphit,lambdachit,phitinitial,chitinitial
 
-common /densityparameters/ Omegam0,Omegar0,aitoa0approx
+common /densityparameters/ Omegam0,Omegar0,aitoa0approx 
 common /inputparametersofHta/ rhomtinitial,rhortinitial,lambdaphit,lambdachit, &
             & phitinitial,chitinitial,rs_matter,rs_rad,ai_new
 
@@ -251,13 +251,6 @@ real(dl) :: var1,var2,var3,var4,var5
 real(dl) :: Ha2,Ha2LCDM,H0inMpcinsec
 
 real(dl) :: Ha2LCDM1,Ha2LCDM2,Hta2LCDM1,Hta2LCDM2
-
-! KR Jun 9
-logical :: isHta2tested
-common /logicalisHta2tested/ isHta2tested
-real(16) :: log10ainitial,log10afinal,atest
-integer :: i,ni
-! End KR Jun 9
 
 !{
 
@@ -284,9 +277,6 @@ end if
 dtauda0 = sqrt(3/grhoa20)
 
 H0inMpcinsec = (1.0d0/dtauda0)
-
-! write(*,*) "H0input = ",CP%H0
-! write(*,*) "H0output = ",H0inMpcinsec*(c/1.0d3)
 
 ! H0dtauda = (1.0d0/dtauda0)*(c/1.0d3)
 
@@ -381,41 +371,9 @@ Hta2value = real(Hta2(real(a,16), &
 & real(rhomtinitial,16),real(rhortinitial,16), &
 & real(lambdaphit,16),real(lambdachit,16),real(phitinitial,16),real(chitinitial,16)),8)
 
-! write(*,*) "Hta20value = ", real(Hta2(real(1.0q0,16), &
-! & real(rhomtinitial,16),real(rhortinitial,16), &
-! & real(lambdaphit,16),real(lambdachit,16),real(phitinitial,16),real(chitinitial,16)),8)
-
 Ha2 = (Hta2value/Hta2LCDMvalue)*Ha2LCDM1
 
 dtauda = 1.0d0/Ha2
-
-! KR Jun 9
-! test Hta2
-
-if (.not. isHta2tested) then
-
-isHta2tested = .true.
-
-! write(*,*) "rhomtinitial = ",rhomtinitial
-! write(*,*) "rhortinitial = ",rhortinitial
-
-open(unit=11,file='a-Ht.txt')
-
-log10ainitial = -5.0q0
-log10afinal = 0.0q0
-ni = 10000
-do i = 1,ni
-    atest = 10.0q0**(log10ainitial + (log10afinal - log10ainitial)*real(i - 1,16)/real(ni - 1,16))
-    write(11,"(2e25.16)") atest, &
-    &    Hta2(atest,rhomtinitial,rhortinitial,lambdaphit,lambdachit,&
-    & phitinitial,chitinitial)/atest**2
-end do
-
-close(11)
-
-end if
-
-! End KR Jun 9
 
 end function dtauda
 
@@ -451,15 +409,17 @@ real(16) :: ainput,rhomtinitialinput,rhortinitialinput,lambdaphitinput, &
 real(16) :: Hta2,aitoa0approx
 
 real(16) :: Omegam0,Omegar0
-common /densityparameters/ Omegam0,Omegar0,aitoa0approx
+common /densityparameters/ Omegam0,Omegar0,aitoa0approx 
 
 real(16) :: rhomtinitial,rhortinitial,lambdaphit,lambdachit,phitinitial,chitinitial
 real(16) :: rs_matter,rs_rad,ai_new
 common /inputparametersofHta/ rhomtinitial,rhortinitial,lambdaphit,lambdachit, &
             & phitinitial,chitinitial,rs_matter,rs_rad,ai_new
+    
 
-
-real(16), dimension(100000) :: arraya,arrayHt
+real(16), dimension(1000000) :: arraya,arrayHt
+real(16), dimension(10):: stepHt,stepphi,stepchi,stepphip,stepchip
+real(16) phifeed,chifeed,phipfeed,chipfeed,Htfeed
 common /arrays/ arraya,arrayHt
 
 integer :: imax
@@ -474,27 +434,36 @@ common /flags/ rhomtinitialflag,rhortinitialflag,lambdaphitflag,lambdachitflag,p
 real(16) :: E
 common /constants/ E
 
-integer :: i
+integer :: i,m
 
 real(16) :: Neinitial,Nefinal,dNe,Newrite,dNewrite
 real(16) :: Htinitial,phitpinitial,chitpinitial
-real(16) :: Ne0approx
+real(16) :: Ne0approx,Nfeed
 real(16) :: Nechit1,Nechit2,deltaNechit
 
 ! integer :: iRK4,nRK4
 real(16) :: Nei,Hti,phiti,chiti,phitpi,chitpi
-real(16) :: Neim1,Htim1,phitim1,chitim1,phitpim1,chitpim1
+real(16) :: Neim1,Htim1,phitim1,chitim1,phiptim1,chiptim1
 real(16) :: dHt,dphit,dchit,dphitp,dchitp
-real(16) :: K11,K12,K13,K14
-real(16) :: K21,K22,K23,K24
-real(16) :: K31,K32,K33,K34
-real(16) :: K41,K42,K43,K44
-real(16) :: K51,K52,K53,K54
+real(16) :: stepHt1,stepHt2,stepHt3,stepHt4
+real(16) :: stepphi1,stepphi2,stepphi3,stepphi4
+real(16) :: stepchi1,stepchi2,stepchi3,stepchi4
+real(16) :: stepphip1,stepphip2,stepphip3,stepphip4
+real(16) :: stepchip1,stepchip2,stepchip3,stepchip4
+
+!DG 7/2/21 added new runge constnts
+real(16) :: stepHt5,stepHt6,stepHt7,stepHt8,stepHt9,stepHt10
+real(16) :: stepphi5,stepphi6,stepphi7,stepphi8,stepphi9,stepphi10
+real(16) :: stepchi5,stepchi6,stepchi7,stepchi8,stepchi9,stepchi10
+real(16) :: stepphip5,stepphip6,stepphip7,stepphip8,stepphip9,stepphip10
+real(16) :: stepchip5,stepchip6,stepchip7,stepchip8,stepchip9,stepchip10,sfac
+
 
 real(16) :: Ne0 !,Ht0,phit0,chit0,phitp0,chitp0
 ! real(16) :: Nea
 
-real(16), dimension(100000) :: arrayNe
+real(16), dimension(1000000) :: arrayNe
+real(16) cmat(1:10,1:10),kv(1:10),sv(1:10)
 
 real(16) :: HtLCDM
 
@@ -578,10 +547,10 @@ Htinitial = ((-(((4.0q0*(E**Neinitial*rhomtinitial + rhortinitial))/E**(4.0q0*Ne
 Nechit1 = Neinitial
 Nechit2 = Nechit1 + 1.0q0
 deltaNechit = min(1.0q0,abs(Nechit2 - Nechit1))
-dNe = deltaNechit/1.0q4
-!dNe = 1.0q-4
+sfac=4.0q2
+dNe = deltaNechit/sfac
 
-dNewrite = 1.0q-3
+dNewrite =  1.0q-3
 
 i = 1
 
@@ -596,80 +565,229 @@ chitpi = chitpinitial
 ! write(11,*) Nei,Hti,phiti,chiti,"endl"
 arrayNe(i) = Nei
 arrayHt(i) = Hti
-
 ! do iRK4 = 2,nRK4
+!print*,Hti
 do while (Hti >= 1.0q0)
 
 ! if ((Hti >= 1.0q0) .and. (Hti < 1.01q0)) then
 !     Ne0 = Nei
 ! end if
-
+! 
 ! if (chiti*chitim1 < 0.0q0) then
 !     Nechit1 = Nechit2
 !     Nechit2 = Nei
 !     deltaNechit = min(1.0q0,abs(Nechit2 - Nechit1))
-!     dNe = deltaNechit/1.0q4
+!     dNe = deltaNechit/sfac
 ! end if
 
 Neim1 = Nei
 Htim1 = Hti
 phitim1 = phiti
 chitim1 = chiti
-phitpim1 = phitpi
-chitpim1 = chitpi
+phiptim1 = phitpi
+chiptim1 = chitpi
 
-K11 = dNe*dHt(Neim1,Htim1,phitim1,chitim1,phitpim1,chitpim1)
-K21 = dNe*dphit(Neim1,Htim1,phitim1,chitim1,phitpim1,chitpim1)
-K31 = dNe*dchit(Neim1,Htim1,phitim1,chitim1,phitpim1,chitpim1)
-K41 = dNe*dphitp(Neim1,Htim1,phitim1,chitim1,phitpim1,chitpim1)
-K51 = dNe*dchitp(Neim1,Htim1,phitim1,chitim1,phitpim1,chitpim1)
+cmat(1,1)=0.q0
+cmat(2,1)=4.q0/27.q0	
+cmat(1,1)=0.q0
+cmat(1,2)=0.q0
+cmat(2,2)=0.q0
 
-K12 = dNe*dHt(Neim1 + dNe/2.0q0,Htim1 + K11/2.0q0, phitim1 + K21/2.0q0,chitim1 + &
-& K31/2.0q0,phitpim1 + K41/2.0q0,chitpim1 + K51/2.0q0)
-K22 = dNe*dphit(Neim1 + dNe/2.0q0,Htim1 + K11/2.0q0, phitim1 + K21/2.0q0,chitim1 + &
-& K31/2.0q0,phitpim1 + K41/2.0q0,chitpim1 + K51/2.0q0)
-K32 = dNe*dchit(Neim1 + dNe/2.0q0,Htim1 + K11/2.0q0, phitim1 + K21/2.0q0,chitim1 + &
-& K31/2.0q0,phitpim1 + K41/2.0q0,chitpim1 + K51/2.0q0)
-K42 = dNe*dphitp(Neim1 + dNe/2.0q0,Htim1 + K11/2.0q0, phitim1 + K21/2.0q0,chitim1 + &
-& K31/2.0q0,phitpim1 + K41/2.0q0,chitpim1 + K51/2.0q0)
-K52 = dNe*dchitp(Neim1 + dNe/2.0q0,Htim1 + K11/2.0q0, phitim1 + K21/2.0q0,chitim1 + &
-& K31/2.0q0,phitpim1 + K41/2.0q0,chitpim1 + K51/2.0q0)
+cmat(3,3)=0.q0
+cmat(3,2)=1.q0/6.q0
+cmat(3,1)=1.q0/18.q0
+cmat(1,3)=0.q0
+cmat(2,3)=0.q0
 
-K13 = dNe*dHt(Neim1 + dNe/2.0q0,Htim1 + K12/2.0q0,phitim1 + K22/2.0q0,chitim1 + &
-& K32/2.0q0,phitpim1 + K42/2.0q0,chitpim1 + K52/2.0q0)
-K23 = dNe*dphit(Neim1 + dNe/2.0q0,Htim1 + K12/2.0q0,phitim1 + K22/2.0q0,chitim1 + &
-& K32/2.0q0,phitpim1 + K42/2.0q0,chitpim1 + K52/2.0q0)
-K33 = dNe*dchit(Neim1 + dNe/2.0q0,Htim1 + K12/2.0q0,phitim1 + K22/2.0q0,chitim1 + &
-& K32/2.0q0,phitpim1 + K42/2.0q0,chitpim1 + K52/2.0q0)
-K43 = dNe*dphitp(Neim1 + dNe/2.0q0,Htim1 + K12/2.0q0,phitim1 + K22/2.0q0,chitim1 + &
-& K32/2.0q0,phitpim1 + K42/2.0q0,chitpim1 + K52/2.0q0)
-K53 = dNe*dchitp(Neim1 + dNe/2.0q0,Htim1 + K12/2.0q0,phitim1 + K22/2.0q0,chitim1 + &
-& K32/2.0q0,phitpim1 + K42/2.0q0,chitpim1 + K52/2.0q0)
 
-K14 = dNe*dHt(Neim1 + dNe,Htim1 + K13,phitim1 + K23,chitim1 + K33,phitpim1 + K43,chitpim1 + K53)
-K24 = dNe*dphit(Neim1 + dNe,Htim1 + K13,phitim1 + K23,chitim1 + K33,phitpim1 + K43,chitpim1 + K53)
-K34 = dNe*dchit(Neim1 + dNe,Htim1 + K13,phitim1 + K23,chitim1 + K33,phitpim1 + K43,chitpim1 + K53)
-K44 = dNe*dphitp(Neim1 + dNe,Htim1 + K13,phitim1 + K23,chitim1 + K33,phitpim1 + K43,chitpim1 + K53)
-K54 = dNe*dchitp(Neim1 + dNe,Htim1 + K13,phitim1 + K23,chitim1 + K33,phitpim1 + K43,chitpim1 + K53)
+cmat(4,4)=0.q0
+cmat(4,3)=1.q0/4.q0
+cmat(4,2)=0.q0
+cmat(4,1)=1.q0/12.q0
+cmat(3,4)=0.q0
+cmat(2,4)=0.q0
+cmat(1,4)=0.q0
+
+cmat(5,5)=0.q0
+cmat(5,4)=3.q0/8.q0
+cmat(5,3)=0.q0
+cmat(5,2)=0.q0
+cmat(5,1)=1.q0/8.q0
+cmat(4,5)=0.q0
+cmat(3,5)=0.q0
+cmat(2,5)=0.q0
+cmat(1,5)=0.q0
+
+cmat(6,6)=0.q0
+cmat(6,5)=4.q0/27.q0
+cmat(6,4)=21.q0/27.q0
+cmat(6,3)=-1.q0/2.q0
+cmat(6,2)=0.q0
+cmat(6,1)=13.q0/54.q0
+cmat(1,6)=0.q0
+cmat(2,6)=0.q0
+cmat(3,6)=0.q0
+cmat(4,6)=0.q0
+cmat(5,6)=0.q0
+
+
+cmat(7,7)=0.q0
+cmat(7,6)=243.q0/4320.q0
+
+cmat(7,5)=-824.q0/4320.q0
+cmat(7,4)=966.q0/4320.q0
+cmat(7,3)=-54.q0/4320.q0
+cmat(7,2)=0.q0
+cmat(7,1)=389.q0/4320.q0
+
+cmat(1,7)=0.q0
+cmat(2,7)=0.q0
+cmat(3,7)=0.q0
+cmat(4,7)=0.q0
+cmat(5,7)=0.q0
+cmat(6,7)=0.q0
+
+
+cmat(8,8)=0.q0
+cmat(8,7)=800.q0/20.q0
+cmat(8,6)=-122.q0/20.q0
+cmat(8,5)=656.q0/20.q0
+cmat(8,4)=-1164.q0/20.q0
+cmat(8,3)=81.q0/20.q0
+cmat(8,2)=0.q0
+cmat(8,1)=-231.q0/20.q0
+cmat(1,8)=0.q0
+cmat(2,8)=0.q0
+cmat(3,8)=0.q0
+cmat(4,8)=0.q0
+cmat(5,8)=0.q0
+cmat(6,8)=0.q0
+cmat(7,8)=0.q0
+
+
+cmat(9,9)=0.q0
+cmat(9,8)=4.q0/288.q0
+cmat(9,7)=576.q0/288.q0
+cmat(9,6)=-9.q0/288.q0
+cmat(9,5)=456.q0/288.q0
+cmat(9,4)=-678.q0/288.q0
+cmat(9,3)=18.q0/288.q0
+cmat(9,2)=0.q0
+cmat(9,1)=-127.q0/288.q0
+cmat(1,9)=0.q0
+cmat(2,9)=0.q0
+cmat(3,9)=0.q0
+cmat(4,9)=0.q0
+cmat(5,9)=0.q0
+cmat(6,9)=0.q0
+cmat(7,9)=0.q0
+cmat(8,9)=0.q0
+cmat(10,10)=0.q0
+cmat(10,9)=720.q0/820.q0
+cmat(10,8)=-60.q0/820.q0
+cmat(10,7)=-5040.q0/820.q0
+cmat(10,6)=72.q0/820.q0
+cmat(10,5)=-3376.q0/820.q0
+cmat(10,4)=7104.q0/820.q0
+cmat(10,3)=-81.q0/820.q0
+cmat(10,2)=0.q0
+cmat(10,1)=1481.q0/820.q0
+cmat(1,10)=0.q0
+cmat(2,10)=0.q0
+cmat(3,10)=0.q0
+cmat(4,10)=0.q0
+cmat(5,10)=0.q0
+cmat(6,10)=0.q0
+cmat(7,10)=0.q0
+cmat(8,10)=0.q0
+cmat(9,10)=0.q0
+
+kv(1)=0.q0
+kv(2)=4.q0*dNe/27.q0
+
+kv(3)=(2.q0/9.q0)*dNe
+kv(4)= (1.q0/3.q0)*dNe
+
+kv(5)= 0.5q0*dNe
+kv(6)=2.q0*dNe/3.q0
+kv(7)=1.q0*dNe/6.q0
+kv(8)=dNe
+
+kv(9)=(5.q0/6.q0)*dNe
+kv(10)=dNe
+
+
+!DG 7/3/2021 added Runge Kutta 8 from https://athene-forschung.unibw.de/doc/85242/85242.pdf
+! stepHt(1) = dNe*dHt(Neim1,Htim1,phitim1,chitim1,phiptim1,chiptim1)
+! stepphi(1) = dNe*dphit(Neim1,Htim1,phitim1,chitim1,phiptim1,chiptim1)
+! stepchi(1) = dNe*dchit(Neim1,Htim1,phitim1,chitim1,phiptim1,chiptim1)
+! stepphip(1) = dNe*dphitp(Neim1,Htim1,phitim1,chitim1,phiptim1,chiptim1)
+! stepchip(1) = dNe*dchitp(Neim1,Htim1,phitim1,chitim1,phiptim1,chiptim1)
+
+stepHt=0.q0
+stepphi=0.q0
+stepchi=0.q0
+stepphip=0.q0
+stepchip=0.q0
+
+
+do m=1,10,1
+Nfeed=Neim1+kv(m)
+Htfeed=Htim1+dot_product(cmat(m,1:m),stepHt(1:m))
+phifeed=phitim1+dot_product(cmat(m,1:m),stepphi(1:m))
+chifeed=chitim1+dot_product(cmat(m,1:m),stepchi(1:m))
+phipfeed=phiptim1+dot_product(cmat(m,1:m),stepphip(1:m))
+chipfeed=chiptim1+dot_product(cmat(m,1:m),stepchip(1:m))
+stepHt(m) = dNe*dHt(Nfeed,&
+&Htfeed,phifeed,chifeed,phipfeed,chipfeed)
+stepphi(m) = dNe*dphit(Nfeed,&
+&Htfeed,phifeed,chifeed,phipfeed,chipfeed)
+stepchi(m) = dNe*dchit(Nfeed,&
+&Htfeed,phifeed,chifeed,phipfeed,chipfeed)
+stepphip(m) = dNe*dphitp(Nfeed,&
+&Htfeed,phifeed,chifeed,phipfeed,chipfeed)
+stepchip(m) = dNe*dchitp(Nfeed,&
+&Htfeed,phifeed,chifeed,phipfeed,chipfeed)
+enddo
+
+
 
 Nei = Neim1 + dNe
-Hti = Htim1 + (1.0q0/6.0q0)*(K11 + 2.0q0*K12 + 2.0q0*K13 + K14)
-phiti = phitim1 + (1.0q0/6.0q0)*(K21 + 2.0q0*K22 + 2.0q0*K23 + K24)
-chiti = chitim1 + (1.0q0/6.0q0)*(K31 + 2.0q0*K32 + 2.0q0*K33 + K34)
-phitpi = phitpim1 + (1.0q0/6.0q0)*(K41 + 2.0q0*K42 + 2.0q0*K43 + K44)
-chitpi = chitpim1 + (1.0q0/6.0q0)*(K51 + 2.0q0*K52 + 2.0q0*K53 + K54)
+!print*,'goof'
+
+sv(1)=41.q0/840.q0
+sv(2)=0.q0
+sv(3)=0.q0
+sv(4)=27.0q0/840.q0
+sv(5)=272.0q0/840.0q0
+sv(6)=27.q0/840.0q0
+sv(7)=216.0q0/840.0q0
+sv(8)=0.0q0
+sv(9)=216.0q0/840.0q0
+sv(10)=41.0q0/840.0q0
+
+
+
+Hti = Htim1 + dot_product(sv,stepHt)
+phiti=phitim1 + dot_product(sv,stepphi)
+chiti=chitim1 + dot_product(sv,stepchi)
+phitpi = phiptim1+dot_product(sv,stepphip)
+chitpi = chiptim1+dot_product(sv,stepchip)
+
+
+
 
 if (Nei >= Newrite + dNewrite) then
-    ! print *,Nei,Hti,phiti,chiti,"endl"
+    print *,Nei,Hti,phiti,chiti,"endl"
     ! write(11,*) Nei,Hti,phiti,chiti,"endl"
     i = i + 1
     arrayNe(i) = Nei
     arrayHt(i) = Hti
     Newrite = Nei
 end if
-
+!print*,Hti
 end do
-
+print*,Nei,Ne0approx,Hti
 imax = i
 
 ! print *,dNe
@@ -698,11 +816,9 @@ do i = 1,imax
     ! write(11,*) arraya(i),arrayHt(i)*arraya(i)**2,HtLCDM(arraya(i),0.3q0,1.0q-4)
 end do
 !output rescale factors DG 12/23
-rs_rad=exp(4.q0*(Ne0approx-Ne0))
-rs_matter=exp(3.q0*(Ne0approx-Ne0))
+rs_rad=exp(4.e0*(Ne0approx-Ne0))
+rs_matter=exp(3.e0*(Ne0approx-Ne0))
 ai_new=exp(-Ne0)
-
-!write(*,*) (Ne0approx-Ne0)
 !write(*,*) rs_rad,rs_matter,ai_new
 !write(*,*) Ne0approx,Ne0
 ! close(11)
@@ -764,7 +880,7 @@ i = leftpoint
 
 Hta2 = (arrayHt(i) + ((arrayHt(i+1) - arrayHt(i))/(arraya(i+1) - arraya(i)))*(log(ainput) &
         & - arraya(i)))*ainput**2
-
+!print*,'here',Hta2
 else if (log(ainput) > arraya(imax)) then
 
 Hta2 =  E**(((arraya(imax))*log(arrayHt(imax-1)) - &
@@ -840,8 +956,8 @@ function dphitp(Ne,Ht,phit,chit,phitp,chitp)
     real(16) :: E
     common /constants/ E
 
-
-    !DG 12/23 new common block with rescale params
+    
+    !DG 12/23 new common block with rescale params        
     real(16) :: rhomtinitial,rhortinitial,lambdaphit,lambdachit,phitinitial,chitinitial
     real(16) :: rs_matter,rs_rad,ai_new
     common /inputparametersofHta/ rhomtinitial,rhortinitial,lambdaphit,lambdachit, &
@@ -867,12 +983,12 @@ function dchitp(Ne,Ht,phit,chit,phitp,chitp)
     real(16) :: E
     common /constants/ E
 
-
+    
     real(16) :: rhomtinitial,rhortinitial,lambdaphit,lambdachit,phitinitial,chitinitial
     real(16) :: rs_matter,rs_rad,ai_new
     common /inputparametersofHta/ rhomtinitial,rhortinitial,lambdaphit,lambdachit, &
             & phitinitial,chitinitial,rs_matter,rs_rad,ai_new
-
+    
 
     dchitp = (-6.0q0*lambdachit*chit**3.0q0 + &
              &    (chitp*(3.0q0*E**Ne*rhomtinitial + 4.0q0*rhortinitial + &

@@ -474,27 +474,33 @@ common /flags/ rhomtinitialflag,rhortinitialflag,lambdaphitflag,lambdachitflag,p
 real(16) :: E
 common /constants/ E
 
-integer :: i
+integer :: i,m
 
 real(16) :: Neinitial,Nefinal,dNe,Newrite,dNewrite
-real(16) :: Htinitial,phitpinitial,chitpinitial
+real(16) :: Htinitial,phiptinitial,chiptinitial
 real(16) :: Ne0approx
 real(16) :: Nechit1,Nechit2,deltaNechit
 
 ! integer :: iRK4,nRK4
-real(16) :: Nei,Hti,phiti,chiti,phitpi,chitpi
-real(16) :: Neim1,Htim1,phitim1,chitim1,phitpim1,chitpim1
+real(16) :: Nei,Hti,phiti,chiti,phipti,chipti
+real(16) :: Neim1,Htim1,phitim1,chitim1,phiptim1,chiptim1
 real(16) :: dHt,dphit,dchit,dphitp,dchitp
-real(16) :: K11,K12,K13,K14
-real(16) :: K21,K22,K23,K24
-real(16) :: K31,K32,K33,K34
-real(16) :: K41,K42,K43,K44
-real(16) :: K51,K52,K53,K54
+real(16) :: stepHt1,stepHt2,stepHt3,stepHt4
+real(16) :: stepphi1,stepphi2,stepphi3,stepphi4
+real(16) :: stepchi1,stepchi2,stepchi3,stepchi4
+real(16) :: stepphip1,stepphip2,stepphip3,stepphip4
+real(16) :: stepchip1,stepchip2,stepchip3,stepchip4,kfeed
+real(16):: Hfeed,phifeed,chifeed,phipfeed,chipfeed
+
+
+
 
 real(16) :: Ne0 !,Ht0,phit0,chit0,phitp0,chitp0
 ! real(16) :: Nea
 
 real(16), dimension(100000) :: arrayNe
+real(16) cmat(1:16,1:16),kv(1:16),sv(1:16)
+real(16) stepHt(16),stepphi(16),stepchi(16), stepphip(16), stepchip(16)
 
 real(16) :: HtLCDM
 
@@ -552,21 +558,21 @@ Neinitial = 0.0q0
 ! Nefinal = Ne0approx + 5.0q0
 ! Nefinal = 40.0q0
 
-phitpinitial = (-4.0q0*lambdaphit*phitinitial**3.0q0)/ &
+phiptinitial = (-4.0q0*lambdaphit*phitinitial**3.0q0)/ &
                  &  ((4.0q0*rhomtinitial)/E**(3.0q0*Neinitial) + (4.0q0*rhortinitial)/ &
                  & E**(4.0q0*Neinitial) + &
                  &    lambdaphit*phitinitial**4.0q0 + lambdachit*chitinitial**4.0q0)
 
-chitpinitial = (-4.0q0*lambdachit*chitinitial**3.0q0)/ &
+chiptinitial = (-4.0q0*lambdachit*chitinitial**3.0q0)/ &
                  &  ((4.0q0*rhomtinitial)/E**(3.0q0*Neinitial) + (4.0q0*rhortinitial)/ &
                  & E**(4.0q0*Neinitial) + &
                  &    lambdaphit*phitinitial**4.0q0 + lambdachit*chitinitial**4.0q0)
 
 Htinitial = ((-(((4.0q0*(E**Neinitial*rhomtinitial + rhortinitial))/E**(4.0q0*Neinitial) + &
                &        lambdaphit*phitinitial**4.0q0 + lambdachit*chitinitial**4.0q0)/ &
-               &      (-6.0q0 + phitpinitial**2.0q0 + chitpinitial**2.0q0)))/(2.0q0))**(0.5q0)
+               &      (-6.0q0 + phiptinitial**2.0q0 + chiptinitial**2.0q0)))/(2.0q0))**(0.5q0)
 
-! Important: Htinitial most be given after phitpinitial and chitpinitial.
+! Important: Htinitial most be given after phiptinitial and chiptinitial.
 
 ! RK4Hphitchitphitpchitp
 
@@ -578,7 +584,7 @@ Htinitial = ((-(((4.0q0*(E**Neinitial*rhomtinitial + rhortinitial))/E**(4.0q0*Ne
 Nechit1 = Neinitial
 Nechit2 = Nechit1 + 1.0q0
 deltaNechit = min(1.0q0,abs(Nechit2 - Nechit1))
-dNe = deltaNechit/1.0q4
+dNe = deltaNechit/4.0q2
 !dNe = 1.0q-4
 
 dNewrite = 1.0q-3
@@ -590,8 +596,8 @@ Newrite = Nei
 Hti = Htinitial
 phiti = phitinitial
 chiti = chitinitial
-phitpi = phitpinitial
-chitpi = chitpinitial
+phipti = phiptinitial
+chipti = chiptinitial
 
 ! write(11,*) Nei,Hti,phiti,chiti,"endl"
 arrayNe(i) = Nei
@@ -599,7 +605,7 @@ arrayHt(i) = Hti
 
 ! do iRK4 = 2,nRK4
 do while (Hti >= 1.0q0)
-
+! 
 ! if ((Hti >= 1.0q0) .and. (Hti < 1.01q0)) then
 !     Ne0 = Nei
 ! end if
@@ -615,52 +621,361 @@ Neim1 = Nei
 Htim1 = Hti
 phitim1 = phiti
 chitim1 = chiti
-phitpim1 = phitpi
-chitpim1 = chitpi
+phiptim1 = phipti
+chiptim1 = chipti
 
-K11 = dNe*dHt(Neim1,Htim1,phitim1,chitim1,phitpim1,chitpim1)
-K21 = dNe*dphit(Neim1,Htim1,phitim1,chitim1,phitpim1,chitpim1)
-K31 = dNe*dchit(Neim1,Htim1,phitim1,chitim1,phitpim1,chitpim1)
-K41 = dNe*dphitp(Neim1,Htim1,phitim1,chitim1,phitpim1,chitpim1)
-K51 = dNe*dchitp(Neim1,Htim1,phitim1,chitim1,phitpim1,chitpim1)
+stepHt=0.0q0
+stepphi=0.0q0
+stepchi=0.0q0
+stepphip=0.0q0
+stepchip=0.0q0
+! 
+! cmat(1,1)=0.q0
+! cmat(2,1)=4.q0/27.q0	
+! cmat(1,1)=0.q0
+! cmat(1,2)=0.q0
+! cmat(2,2)=0.q0
+! 
+! cmat(3,3)=0.q0
+! cmat(3,2)=1.q0/6.q0
+! cmat(3,1)=1.q0/18.q0
+! cmat(1,3)=0.q0
+! cmat(2,3)=0.q0
+! 
+! 
+! cmat(4,4)=0.q0
+! cmat(4,3)=1.q0/4.q0
+! cmat(4,2)=0.q0
+! cmat(4,1)=1.q0/12.q0
+! cmat(3,4)=0.q0
+! cmat(2,4)=0.q0
+! cmat(1,4)=0.q0
+! 
+! cmat(5,5)=0.q0
+! cmat(5,4)=3.q0/8.q0
+! cmat(5,3)=0.q0
+! cmat(5,2)=0.q0
+! cmat(5,1)=1.q0/8.q0
+! cmat(4,5)=0.q0
+! cmat(3,5)=0.q0
+! cmat(2,5)=0.q0
+! cmat(1,5)=0.q0
+! 
 
-K12 = dNe*dHt(Neim1 + dNe/2.0q0,Htim1 + K11/2.0q0, phitim1 + K21/2.0q0,chitim1 + &
-& K31/2.0q0,phitpim1 + K41/2.0q0,chitpim1 + K51/2.0q0)
-K22 = dNe*dphit(Neim1 + dNe/2.0q0,Htim1 + K11/2.0q0, phitim1 + K21/2.0q0,chitim1 + &
-& K31/2.0q0,phitpim1 + K41/2.0q0,chitpim1 + K51/2.0q0)
-K32 = dNe*dchit(Neim1 + dNe/2.0q0,Htim1 + K11/2.0q0, phitim1 + K21/2.0q0,chitim1 + &
-& K31/2.0q0,phitpim1 + K41/2.0q0,chitpim1 + K51/2.0q0)
-K42 = dNe*dphitp(Neim1 + dNe/2.0q0,Htim1 + K11/2.0q0, phitim1 + K21/2.0q0,chitim1 + &
-& K31/2.0q0,phitpim1 + K41/2.0q0,chitpim1 + K51/2.0q0)
-K52 = dNe*dchitp(Neim1 + dNe/2.0q0,Htim1 + K11/2.0q0, phitim1 + K21/2.0q0,chitim1 + &
-& K31/2.0q0,phitpim1 + K41/2.0q0,chitpim1 + K51/2.0q0)
 
-K13 = dNe*dHt(Neim1 + dNe/2.0q0,Htim1 + K12/2.0q0,phitim1 + K22/2.0q0,chitim1 + &
-& K32/2.0q0,phitpim1 + K42/2.0q0,chitpim1 + K52/2.0q0)
-K23 = dNe*dphit(Neim1 + dNe/2.0q0,Htim1 + K12/2.0q0,phitim1 + K22/2.0q0,chitim1 + &
-& K32/2.0q0,phitpim1 + K42/2.0q0,chitpim1 + K52/2.0q0)
-K33 = dNe*dchit(Neim1 + dNe/2.0q0,Htim1 + K12/2.0q0,phitim1 + K22/2.0q0,chitim1 + &
-& K32/2.0q0,phitpim1 + K42/2.0q0,chitpim1 + K52/2.0q0)
-K43 = dNe*dphitp(Neim1 + dNe/2.0q0,Htim1 + K12/2.0q0,phitim1 + K22/2.0q0,chitim1 + &
-& K32/2.0q0,phitpim1 + K42/2.0q0,chitpim1 + K52/2.0q0)
-K53 = dNe*dchitp(Neim1 + dNe/2.0q0,Htim1 + K12/2.0q0,phitim1 + K22/2.0q0,chitim1 + &
-& K32/2.0q0,phitpim1 + K42/2.0q0,chitpim1 + K52/2.0q0)
+kv=0.0q0
+kv(1)=0.4436894037649818q0*dNe
+kv(2)=0.6655341056474727q0*dNe
+kv(3)=0.9983011584712091q0*dNe
+kv(4)=0.31550q0*dNe
+kv(5)=0.5054410094816906q0*dNe
+kv(6)=0.1714285714285714q0*dNe
+kv(7)=0.8285714285714285q0*dNe
+kv(8)=0.6654396612101156q0*dNe
+kv(9)=0.2487831796806265q0*dNe
+kv(10)=0.1090q0*dNe
+kv(11)=0.8910q0*dNe
+kv(12)=0.3995q0*dNe
+kv(13)=0.6005q0*dNe
+kv(14)=1.0q0*dNe
+kv(15)=0.0q0*dNe
+kv(16)=1.0q0*dNe
 
-K14 = dNe*dHt(Neim1 + dNe,Htim1 + K13,phitim1 + K23,chitim1 + K33,phitpim1 + K43,chitpim1 + K53)
-K24 = dNe*dphit(Neim1 + dNe,Htim1 + K13,phitim1 + K23,chitim1 + K33,phitpim1 + K43,chitpim1 + K53)
-K34 = dNe*dchit(Neim1 + dNe,Htim1 + K13,phitim1 + K23,chitim1 + K33,phitpim1 + K43,chitpim1 + K53)
-K44 = dNe*dphitp(Neim1 + dNe,Htim1 + K13,phitim1 + K23,chitim1 + K33,phitpim1 + K43,chitpim1 + K53)
-K54 = dNe*dchitp(Neim1 + dNe,Htim1 + K13,phitim1 + K23,chitim1 + K33,phitpim1 + K43,chitpim1 + K53)
+cmat=0.0q0
+cmat(1,1)=kv(1)/dNe
+cmat(2,1)=0.1663835264118681q0
+cmat(2,2)=0.49915057q0
+cmat(3,1)=0.24957528q0
+cmat(3,2)=0.0q0
+cmat(3,3)=0.74872586q0
+cmat(4,1)=0.20661891q0
+cmat(4,2)=0.0q0
+cmat(4,3)=0.17707880q0
+cmat(4,4)=-0.68197715q-1
+cmat(5,1)=0.10927823q0
+cmat(5,2)=0.0q0
+cmat(5,3)=0.0q0
+cmat(5,4)=0.40215962q-2
+cmat(5,5)=0.39214118q0
+cmat(6,1)=0.98899281q-1
+cmat(6,2)=0.0q0
+cmat(6,3)=0.0q0
+cmat(6,4)=0.35138370q-1
+cmat(6,5)=0.12476099q0
+cmat(6,6)=-0.55745546q-1
+cmat(7,1)=-0.36806865q0
+cmat(7,2)=0.0q0
+cmat(7,3)=0.0q0
+cmat(7,4)=0.0q0
+cmat(7,5)=-0.22273897q1
+cmat(7,6)=0.13742908q1
+cmat(7,7)=0.20497390q1
+cmat(8,1)=0.45467962q-1
+cmat(8,2)=0.0q0
+cmat(8,3)=0.0q0
+cmat(8,4)=0.0q0
+cmat(8,5)=0.0q0
+cmat(8,6)=0.32542131q0
+cmat(8,7)=0.28476660q0
+cmat(8,8)=0.97837801q-2
+cmat(9,1)=0.60842071q-1
+cmat(9,2)=0.0q0
+cmat(9,3)=0.0q0
+cmat(9,4)=0.0q0
+cmat(9,5)=0.0q0
+cmat(9,6)=-0.21184565q-1
+cmat(9,7)=0.19596557q0
+cmat(9,8)=-0.42742640q-2
+cmat(9,9)=0.17434365q-1
+cmat(10,1)=0.54059783q-1
+cmat(10,2)=0.0q0
+cmat(10,3)=0.0q0
+cmat(10,4)=0.0q0
+cmat(10,5)=0.0q0
+cmat(10,6)=0.0q0
+cmat(10,7)=.11029325q0
+cmat(10,8)=-.12565008q-2
+cmat(10,9)=0.36790043q-2
+cmat(10,10)=-.57780542q-1
+cmat(11,1)=.12732477q0
+cmat(11,2)=0.0q0
+cmat(11,3)=0.0q0
+cmat(11,4)=0.0q0
+cmat(11,5)=0.0q0
+cmat(11,6)=0.0q0
+cmat(11,7)=0.0q0
+cmat(11,8)=0.11448805q0
+cmat(11,9)=0.28773020q0
+cmat(11,10)=0.50945379q0
+cmat(11,11)=-0.14799682q0
+cmat(12,1)=-0.36526793q-2
+cmat(12,2)=0.0q0
+cmat(12,3)=0.0q0
+cmat(12,4)=0.0q0
+cmat(12,5)=0.0q0
+cmat(12,6)=0.81629896q-1
+cmat(12,7)=-0.38607735q0
+cmat(12,8)=0.30862242q-1
+cmat(12,9)=-0.58077254q-1
+cmat(12,10)=0.33598659q0
+cmat(12,11)=0.41066880q0
+cmat(12,12)=-0.11840245q-1
+cmat(13,1)=-0.12375357q1
+cmat(13,2)=0.0q0
+cmat(13,3)=0.0q0
+cmat(13,4)=0.0q0
+cmat(13,5)=0.0q0
+cmat(13,6)=-0.24430768q2
+cmat(13,7)=0.54779568q0
+cmat(13,8)=-0.44413863q1
+cmat(13,9)=0.10013104q2
+cmat(13,10)=-0.14995773q2
+cmat(13,11)=0.58946948q1
+cmat(13,12)=0.17380377q1
+cmat(13,13)=0.27512330q2
+cmat(14,1)=-0.35260859q0
+cmat(14,2)=0.0q0
+cmat(14,3)=0.0q0
+cmat(14,4)=0.0q0
+cmat(14,5)=0.0q0
+cmat(14,6)=-0.18396103q0
+cmat(14,7)=-0.65570189q0
+cmat(14,8)=-.39086144q0
+cmat(14,9)=0.26794646q0
+cmat(14,10)=-0.10383022q1
+cmat(14,11)=0.16672327q1
+cmat(14,12)=0.49551925q0
+cmat(14,13)=.11394001q1
+cmat(14,14)=0.51336696q-1
+cmat(15,1)=0.10464847q-2
+cmat(15,2)=0.0q0
+cmat(15,3)=0.0q0
+cmat(15,4)=0.0q0
+cmat(15,5)=0.0q0
+cmat(15,6)=0.0q0
+cmat(15,7)=0.0q0
+cmat(15,8)=0.0q0
+cmat(15,9)=-0.67163886q-2
+cmat(15,10)=0.81828762q-2
+cmat(15,11)=-0.42640342q-2
+cmat(15,12)=0.280090294741q-3
+cmat(15,13)=-0.87835333q-2
+cmat(15,14)=0.10254505q-1
+cmat(15,15)=0.0q0
+cmat(16,1)=-0.13536550q1
+cmat(16,2)=0.0q0
+cmat(16,3)=0.0q0
+cmat(16,4)=0.0q0
+cmat(16,5)=0.0q0
+cmat(16,6)=-0.18396103q0
+cmat(16,7)=-0.65570189q0
+cmat(16,8)=-0.39086144q0
+cmat(16,9)=0.27466285q0
+cmat(16,10)=-0.10464851q1
+cmat(16,11)=0.16714967q1
+cmat(16,12)=0.49523916q0
+cmat(16,13)=0.11481836q1
+cmat(16,14)=0.41082191q-1
+cmat(16,15)=0.0q0
+cmat(16,16)=1.0q0
 
+! cmat(6,6)=0.q0
+! cmat(6,5)=4.q0/27.q0
+! cmat(6,4)=21.q0/27.q0
+! cmat(6,3)=-1.q0/2.q0
+! cmat(6,2)=0.q0
+! cmat(6,1)=13.q0/54.q0
+! cmat(1,6)=0.q0
+! cmat(2,6)=0.q0
+! cmat(3,6)=0.q0
+! cmat(4,6)=0.q0
+! cmat(5,6)=0.q0
+! 
+! 
+! cmat(7,7)=0.q0
+! cmat(7,6)=243.q0/4320.q0
+! 
+! cmat(7,5)=-824.q0/4320.q0
+! cmat(7,4)=966.q0/4320.q0
+! cmat(7,3)=-54.q0/4320.q0
+! cmat(7,2)=0.q0
+! cmat(7,1)=389.q0/4320.q0
+! 
+! cmat(1,7)=0.q0
+! cmat(2,7)=0.q0
+! cmat(3,7)=0.q0
+! cmat(4,7)=0.q0
+! cmat(5,7)=0.q0
+! cmat(6,7)=0.q0
+! 
+! 
+! cmat(8,8)=0.q0
+! cmat(8,7)=800.q0/20.q0
+! cmat(8,6)=-122.q0/20.q0
+! cmat(8,5)=656.q0/20.q0
+! cmat(8,4)=-1164.q0/20.q0
+! cmat(8,3)=81.q0/20.q0
+! cmat(8,2)=0.q0
+! cmat(8,1)=-231.q0/20.q0
+! cmat(1,8)=0.q0
+! cmat(2,8)=0.q0
+! cmat(3,8)=0.q0
+! cmat(4,8)=0.q0
+! cmat(5,8)=0.q0
+! cmat(6,8)=0.q0
+! cmat(7,8)=0.q0
+! 
+! 
+! cmat(9,9)=0.q0
+! cmat(9,8)=4.q0/288.q0
+! cmat(9,7)=576.q0/288.q0
+! cmat(9,6)=-9.q0/288.q0
+! cmat(9,5)=456.q0/288.q0
+! cmat(9,4)=-678.q0/288.q0
+! cmat(9,3)=18.q0/288.q0
+! cmat(9,2)=0.q0
+! cmat(9,1)=-127.q0/288.q0
+! cmat(1,9)=0.q0
+! cmat(2,9)=0.q0
+! cmat(3,9)=0.q0
+! cmat(4,9)=0.q0
+! cmat(5,9)=0.q0
+! cmat(6,9)=0.q0
+! cmat(7,9)=0.q0
+! cmat(8,9)=0.q0
+! cmat(10,10)=0.q0
+! cmat(10,9)=720.q0/820.q0
+! cmat(10,8)=-60.q0/820.q0
+! cmat(10,7)=-5040.q0/820.q0
+! cmat(10,6)=72.q0/820.q0
+! cmat(10,5)=-3376.q0/820.q0
+! cmat(10,4)=7104.q0/820.q0
+! cmat(10,3)=-81.q0/820.q0
+! cmat(10,2)=0.q0
+! cmat(10,1)=1481.q0/820.q0
+! cmat(1,10)=0.q0
+! cmat(2,10)=0.q0
+! cmat(3,10)=0.q0
+! cmat(4,10)=0.q0
+! cmat(5,10)=0.q0
+! cmat(6,10)=0.q0
+! cmat(7,10)=0.q0
+! cmat(8,10)=0.q0
+! cmat(9,10)=0.q0
+! 
+! kv(1)=0.q0
+! kv(2)=4.q0*dNe/27.q0
+! 
+! kv(3)=(2.q0/9.q0)*dNe
+! kv(4)= (1.q0/3.q0)*dNe
+! 
+! kv(5)= 0.5q0*dNe
+! kv(6)=2.q0*dNe/3.q0
+! kv(7)=1.q0*dNe/6.q0
+! kv(8)=dNe
+! 
+! kv(9)=(5.q0/6.q0)*dNe
+! kv(10)=dNe
+
+! 
+! sv(1)=41.q0/840.q0
+! sv(2)=0.q0
+! sv(3)=0.q0
+! sv(4)=27.0q0/840.q0
+! sv(5)=272.0q0/840.0q0
+! sv(6)=27.q0/840.0q0
+! sv(7)=216.0q0/840.0q0
+! sv(8)=0.0q0
+! sv(9)=216.0q0/840.0q0
+! sv(10)=41.0q0/840.0q0
+
+!axioncamb versions
+sv(1)=0.32256083q-1
+sv(2)=0.0q0
+sv(3)=0.0q0
+sv(4)=0.0q0
+sv(5)=0.0q0
+sv(6)=0.0q0
+sv(7)=0.0q0
+sv(8)=0.0q0
+sv(9)=0.25983725q0
+sv(10)=0.92847805q-1
+sv(11)=.16452330q0
+sv(12)=0.176659510q0
+sv(13)=0.23920102q0
+sv(14)=0.39484274q-2
+sv(15)=0.3072649547580q-1
+sv(16)=0.0q0
+
+
+do m=1,16,1
+kfeed=Neim1+kv(m)
+Hfeed=Htim1+dot_product(cmat(m,1:m),stepHt(1:m))
+phifeed=phitim1+dot_product(cmat(m,1:m),stepphi(1:m))
+chifeed=chitim1+dot_product(cmat(m,1:m),stepchi(1:m))
+phipfeed=phiptim1+dot_product(cmat(m,1:m),stepphip(1:m))
+chipfeed=chiptim1+dot_product(cmat(m,1:m),stepchip(1:m))
+stepHt(m) = dNe*dHt(kfeed,Hfeed, phifeed,chifeed,phipfeed,chipfeed)
+stepphi(m) = dNe*dphit(kfeed,Hfeed, phifeed,chifeed,phipfeed,chipfeed)
+stepchi(m) = dNe*dchit(kfeed,Hfeed, phifeed,chifeed,phipfeed,chipfeed)
+stepphip(m) = dNe*dphitp(kfeed,Hfeed, phifeed,chifeed,phipfeed,chipfeed)
+stepchip(m) = dNe*dchitp(kfeed,Hfeed, phifeed,chifeed,phipfeed,chipfeed)
+enddo
 Nei = Neim1 + dNe
-Hti = Htim1 + (1.0q0/6.0q0)*(K11 + 2.0q0*K12 + 2.0q0*K13 + K14)
-phiti = phitim1 + (1.0q0/6.0q0)*(K21 + 2.0q0*K22 + 2.0q0*K23 + K24)
-chiti = chitim1 + (1.0q0/6.0q0)*(K31 + 2.0q0*K32 + 2.0q0*K33 + K34)
-phitpi = phitpim1 + (1.0q0/6.0q0)*(K41 + 2.0q0*K42 + 2.0q0*K43 + K44)
-chitpi = chitpim1 + (1.0q0/6.0q0)*(K51 + 2.0q0*K52 + 2.0q0*K53 + K54)
+Hti = Htim1 + dot_product(sv,stepHt)
+phiti = phitim1 + dot_product(sv,stepphi)
+chiti = chitim1 + dot_product(sv,stepchi)
+phipti = phiptim1 + dot_product(sv,stepphip)
+chipti = chiptim1 + dot_product(sv,stepchip)
+
+
+121 FORMAT (F14.10, 5X, F18.6,5X,F14.12,5X,F14.8)
 
 if (Nei >= Newrite + dNewrite) then
-    ! print *,Nei,Hti,phiti,chiti,"endl"
+
+    write(*,121) Nei,Hti,chiti,phiti
+    !phiti,
+    !,"endl"
     ! write(11,*) Nei,Hti,phiti,chiti,"endl"
     i = i + 1
     arrayNe(i) = Nei
@@ -680,8 +995,8 @@ Ne0 = Nei
 ! Ht0 = 1.0q0
 ! phit0 = phiti
 ! chit0 = chiti
-! phitp0 = phitpi
-! chitp0 = chitpi
+! phitp0 = phipti
+! chitp0 = chipti
 
 ! open(unit=11,file='aHta2.dat')
 
@@ -698,6 +1013,8 @@ do i = 1,imax
     ! write(11,*) arraya(i),arrayHt(i)*arraya(i)**2,HtLCDM(arraya(i),0.3q0,1.0q-4)
 end do
 !output rescale factors DG 12/23
+print*,Nei,Ne0approx,Hti
+
 rs_rad=exp(4.q0*(Ne0approx-Ne0))
 rs_matter=exp(3.q0*(Ne0approx-Ne0))
 ai_new=exp(-Ne0)

@@ -190,10 +190,10 @@ real(dl) :: Ha2LCDM1,Ha2LCDM2,Hta2LCDM1,Hta2LCDM2
     !write(*,*) "Omegam0 = ",Omegam0
    ! write(*,*) "Omegar0 = ",Omegar0
 
-    aitoa0approx = 1.0q-5
+    aitoa0approx = 1.0e-5
 
-    rhomtinitial = 3.0q0*Omegam0*aitoa0approx**(-3.0q0)
-    rhortinitial = 3.0q0*Omegar0*aitoa0approx**(-4.0q0)
+    rhomtinitial = 3.0q0*Omegam0*aitoa0approx**(-3.0e0)
+    rhortinitial = 3.0q0*Omegar0*aitoa0approx**(-4.0e0)
 !    write(*,*)rhomtinitial
 ! var1 = myparameter1
 ! var2 = myparameter2
@@ -222,7 +222,7 @@ real(dl) :: Ha2LCDM1,Ha2LCDM2,Hta2LCDM1,Hta2LCDM2
    ! write(*,*) "Omegar0 = ",Omegar0
 
     aitoa0approx = ai_new
-!     rhomtinitialflag=0.e0
+   !  rhomtinitialflag=0.e0
 !     rhortinitialflag=0.e0
 !     lambdaphitflag=0.e0
 !     lambdachitflag=0.e0
