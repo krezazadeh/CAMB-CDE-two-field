@@ -831,17 +831,23 @@ do i = 1,imax
 
     ! *KR CHANGE*
     ! Important: rescaling
-    arraya(i) = (Ne0approx/Ne0)*arrayNe(i) - Ne0approx
+   ! arraya(i) = (Ne0approx/Ne0)*arrayNe(i) - Ne0approx
+   !KR 7/22 better rescaling more precise
+    arraya(i) = log(aitoa0approx) - log(aitoa0approx)*(arrayNe(i))/(arrayNe(imax))
+
     ! write(*,*) i,log(arraya(i))
     ! write(*,*) i,arrayNe(i),arrayHt(i),arraya(i)
     ! write(11,*) arraya(i),arrayHt(i)*arraya(i)**2,HtLCDM(arraya(i),0.3q0,1.0q-4)
 end do
-!output rescale factors DG 12/23
 print*,Nei,Ne0approx,Hti
 
-rs_rad=exp(4.q0*(Ne0approx-Ne0))
-rs_matter=exp(3.q0*(Ne0approx-Ne0))
-ai_new=exp(-Ne0)
+
+
+!output rescale factors DG 12/23
+!KR 7/22/2021 not needed as we disuussed
+! rs_rad=exp(4.q0*(Ne0approx-Ne0))
+! rs_matter=exp(3.q0*(Ne0approx-Ne0))
+! ai_new=exp(-Ne0)
 
 !write(*,*) (Ne0approx-Ne0)
 !write(*,*) rs_rad,rs_matter,ai_new
