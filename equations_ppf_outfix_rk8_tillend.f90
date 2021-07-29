@@ -483,6 +483,8 @@ real(16) :: Nechit1,Nechit2,deltaNechit
 
 integer :: iRK8,nRK8
 real(16) :: Nei,Hti,phiti,chiti,phipti,chipti,Htiold
+!DG add 
+real(16) :: Hfi
 real(16) :: Neim1,Htim1,phitim1,chitim1,phiptim1,chiptim1
 real(16) :: dHt,dphit,dchit,dphitp,dchitp
 real(16) :: stepHt1,stepHt2,stepHt3,stepHt4
@@ -609,9 +611,11 @@ arrayHt(i) = Hti
 
 !do while (Hti >= 1.0q0)
 
-
+!7/29/2021
 !DG guarantee log(aiotoapprox)# of e foldings
-do while(Nei <= Ne0approx)
+!# are run and we get a true final Hf for density recsalings
+!when the requisite number of e foldings has run
+do while(Nei <= Ne0approx .or. Hti>1.0q0)
 ! 
 ! if ((Hti >= 1.0q0) .and. (Hti < 1.01q0)) then
 !     Ne0 = Nei
@@ -818,9 +822,17 @@ end if
         imax=i
         endif
     endif
+    !DG add ability to continue pas original end until desired # of e foldings is reached)
+    ! if Nei>Ne0approx when Hf1=1.0q0, want an accurate Hf
+    Hfi=1.0q0
+    if (Nei<Ne0approx) then
+        if(Nei+dNe>Ne0approx) then
+        Hfi=Hti
+    endif
+    endif
 end do
 imax = imax-1
-print*,imax,arrayNe(imax)
+print*,imax,arrayNe(imax),Hfi
 
 ! print *,dNe
 
