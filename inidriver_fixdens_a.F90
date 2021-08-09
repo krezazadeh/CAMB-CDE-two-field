@@ -169,7 +169,7 @@ real(dl) :: Ha2LCDM1,Ha2LCDM2,Hta2LCDM1,Hta2LCDM2
         P%omegav = Ini_Read_Double('omega_lambda')
         P%omegan = Ini_Read_Double('omega_neutrino')
     end if
- !DG 5/23 move density parameters around so I can call scalar field integration in inidriver
+ !DG 5/23 move density parameters around so I can call scalar fiel dintegration in inidriver
     P%tcmb   = Ini_Read_Double('temp_cmb',COBE_CMBTemp)
     P%yhe    = Ini_Read_Double('helium_fraction',0.24_dl)
     P%Num_Nu_massless  = Ini_Read_Double('massless_neutrinos')
@@ -187,45 +187,16 @@ real(dl) :: Ha2LCDM1,Ha2LCDM2,Hta2LCDM1,Hta2LCDM2
 
     Omegam0 = real((grhoc + grhob)/(3.0d0*H0inMpcinsec**2),16)
     Omegar0 = real((grhog + grhornomass)/(3.0d0*H0inMpcinsec**2),16)
-    aitoa0approx = 1.0q-5
+    !write(*,*) "Omegam0 = ",Omegam0
+    write(*,*) "Omegar0 = ",Omegar0
 
-    rhomtinitial = 3.0q0*Omegam0*aitoa0approx**(-3.0q0)
-    rhortinitial = 3.0q0*Omegar0*aitoa0approx**(-4.0q0)
+
 
     phitinitial = real(myparameter1,16)
     chitinitial = real(myparameter2,16)
     lambdaphit = real(10.0d0**myparameter3,16)
     lambdachit = real(10.0d0**myparameter4,16)
-
-
-    Hta2value = real(Hta2(real(1,16), &
-& real(rhomtinitial,16),real(rhortinitial,16), &
-& real(lambdaphit,16),real(lambdachit,16),real(phitinitial,16),real(chitinitial,16),P),8)
-
-    !omega b and omega c are rescaled in equations_ppf_outfix_rk_8
-    !Compute new needed radiation density
-    
-    !Compute physical density in massless neutrinos to hold everything else fixed
-    grhornomass=Omegar0*rs_rad*(3.0d0*H0inMpcinsec**2)-grhog
-    nu_massless_degeneracy= P%Num_Nu_massless
-
-!    print*,grhornomass/grhor
- 
-    !Compute updated number of non-photon free-streaming rel degrees of freedom
-    !needed to get H=H0 not at a=af*2, the stopping point determined by scalar field code
-    
-    P%Num_Nu_massless=grhornomass/grhor
-    print*,  P%Num_Nu_massless
-    P%omegav = 1- Ini_Read_Double('omk') - P%omegab-P%omegac - P%omegan
-   
- 
-    aitoa0approx = ai_new
-    
   
-    
- !End DG changes here   
-    
-   
 
     P%Nu_mass_eigenstates = Ini_Read_Int('nu_mass_eigenstates',1)
     if (P%Nu_mass_eigenstates > max_nu) error stop 'too many mass eigenstates'

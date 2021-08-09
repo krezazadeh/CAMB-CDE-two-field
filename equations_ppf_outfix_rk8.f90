@@ -845,8 +845,7 @@ print*,Nei,Ne0approx,Hti
 
 
 
-!output rescale factors DG 12/23
-!KR 7/22/2021 not needed as we disuussed
+!DG KR July agree, output updated density parameter at af2
 rs_rad=exp(4.q0*(Ne0approx-Ne0))
 rs_matter=exp(3.q0*(Ne0approx-Ne0))
 P%omegab=P%omegab*rs_matter

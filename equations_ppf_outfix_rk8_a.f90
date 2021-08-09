@@ -236,7 +236,8 @@ real(dl) :: grhoa20,dtauda0,H0dtauda
 real(16) :: Omegam0,Omegar0,rs_matter,rs_rad,ai_new
 real(16) :: rhomtinitial,rhortinitial,lambdaphit,lambdachit,phitinitial,chitinitial
 
-common /densityparameters/ Omegam0,Omegar0,aitoa0approx
+common /densityparameters/ Omegam0,Omegar0
+!,aitoa0approx
 common /inputparametersofHta/ rhomtinitial,rhortinitial,lambdaphit,lambdachit, &
             & phitinitial,chitinitial,rs_matter,rs_rad,ai_new
 
@@ -255,8 +256,10 @@ real(dl) :: Ha2LCDM1,Ha2LCDM2,Hta2LCDM1,Hta2LCDM2
 ! KR Jun 9
 logical :: isHta2tested
 common /logicalisHta2tested/ isHta2tested
+common /hvec/ H0inMpcinsec 
 real(16) :: log10ainitial,log10afinal,atest
 integer :: i,ni
+!type(CAMBparams)  P
 ! End KR Jun 9
 
 !{
@@ -443,7 +446,7 @@ end function Hta2LCDM
 
 function Hta2(ainput,rhomtinitialinput,rhortinitialinput,lambdaphitinput, &
      & lambdachitinput,phitinitialinput,chitinitialinput)
-
+use ModelParams
 implicit none
 
 real(16) :: ainput,rhomtinitialinput,rhortinitialinput,lambdaphitinput, &
@@ -451,7 +454,8 @@ real(16) :: ainput,rhomtinitialinput,rhortinitialinput,lambdaphitinput, &
 real(16) :: Hta2,aitoa0approx
 
 real(16) :: Omegam0,Omegar0
-common /densityparameters/ Omegam0,Omegar0,aitoa0approx
+common /densityparameters/ Omegam0,Omegar0
+!,aitoa0approx
 
 real(16) :: rhomtinitial,rhortinitial,lambdaphit,lambdachit,phitinitial,chitinitial
 real(16) :: rs_matter,rs_rad,ai_new
@@ -481,10 +485,8 @@ real(16) :: Htinitial,phiptinitial,chiptinitial
 real(16) :: Ne0approx
 real(16) :: Nechit1,Nechit2,deltaNechit
 
-integer :: iRK8,nRK8
-real(16) :: Nei,Hti,phiti,chiti,phipti,chipti,Htiold
-!DG add 
-real(16) :: Hfi
+! integer :: iRK4,nRK4
+real(16) :: Nei,Hti,phiti,chiti,phipti,chipti
 real(16) :: Neim1,Htim1,phitim1,chitim1,phiptim1,chiptim1
 real(16) :: dHt,dphit,dchit,dphitp,dchitp
 real(16) :: stepHt1,stepHt2,stepHt3,stepHt4
@@ -493,7 +495,7 @@ real(16) :: stepchi1,stepchi2,stepchi3,stepchi4
 real(16) :: stepphip1,stepphip2,stepphip3,stepphip4
 real(16) :: stepchip1,stepchip2,stepchip3,stepchip4,kfeed
 real(16):: Hfeed,phifeed,chifeed,phipfeed,chipfeed
-
+common /hvec/ H0inMpcinsec 
 
 
 
@@ -505,50 +507,28 @@ real(16) cmat(1:10,1:10),kv(1:10),sv(1:10)
 real(16) stepHt(10),stepphi(10),stepchi(10), stepphip(10), stepchip(10)
 
 real(16) :: HtLCDM
+real(dl) H0inMpcinsec
 
 integer :: leftpoint,rightpoint,midpoint
-
+!type(CAMBparams)  CP
 ! open(unit=11,file='Ht_a.dat')
-!DG 
-integer :: nq
 
 E = 2.7182818284590452353602874713526624977572470937000q0
 
-! lambdaphit = 2.5q0
-! lambdachit = 5.0q-5
-! phitinitial = 10.0q0
-! chitinitial = 12.0q0
-! rhomtinitial = 0.0q0
-! rhortinitial = 0.0q0
-
-! a = 1.0q-3
-! lambdaphit = 0.00083814202868931q0
-! lambdachit = 1.0q-3*lambdaphit
-! phitinitial = 10.0q0
-! chitinitial = 12.0q0
-!
-! Omegam0 = 0.3q0
-! Omegar0 = 1.0q-4
-!
-!aitoa0approx = 1.0q-5
+aitoa0approx = 1.0q-5
 !write(*,*) "ait", aitoa0approx
 Ne0approx = log(1.0q0/aitoa0approx)
 !
-! rhomtinitial = 3.0q0*Omegam0*aitoa0approx**(-3.0q0)
-! rhortinitial = 3.0q0*Omegar0*aitoa0approx**(-4.0q0)
+rhomtinitial = 3.0q0*Omegam0*aitoa0approx**(-3.0q0)
+rhortinitial = 3.0q0*Omegar0*aitoa0approx**(-4.0q0)
 
-rhomtinitial = rhomtinitialinput
-rhortinitial = rhortinitialinput
-lambdaphit = lambdaphitinput
-lambdachit = lambdachitinput
-phitinitial = phitinitialinput
-chitinitial = chitinitialinput
 
 if ((rhomtinitial == rhomtinitialflag) .and. (rhortinitial == rhortinitialflag) .and. &
     & (lambdaphit == lambdaphitflag) .and. (lambdachit == lambdachitflag) &
     & .and. (phitinitial == phitinitialflag) .and. (chitinitial == chitinitialflag)) then
     goto 594
 end if
+
 !write(*,*) 'cheese'
 
 rhomtinitialflag = rhomtinitial
@@ -559,8 +539,6 @@ phitinitialflag = phitinitial
 chitinitialflag = chitinitial
 
 Neinitial = 0.0q0
-! Nefinal = Ne0approx + 5.0q0
-! Nefinal = 40.0q0
 
 phiptinitial = (-4.0q0*lambdaphit*phitinitial**3.0q0)/ &
                  &  ((4.0q0*rhomtinitial)/E**(3.0q0*Neinitial) + (4.0q0*rhortinitial)/ &
@@ -588,10 +566,8 @@ Htinitial = ((-(((4.0q0*(E**Neinitial*rhomtinitial + rhortinitial))/E**(4.0q0*Ne
 Nechit1 = Neinitial
 Nechit2 = Nechit1 + 1.0q0
 deltaNechit = min(1.0q0,abs(Nechit2 - Nechit1))
-
-nq=400
-dNe = deltaNechit/real(nq,16)
-
+dNe = deltaNechit/4.0q2
+!dNe = 1.0q-4
 
 dNewrite = 1.0q-3
 
@@ -609,13 +585,8 @@ chipti = chiptinitial
 arrayNe(i) = Nei
 arrayHt(i) = Hti
 
-!do while (Hti >= 1.0q0)
-
-!7/29/2021
-!DG guarantee log(aiotoapprox)# of e foldings
-!# are run and we get a true final Hf for density recsalings
-!when the requisite number of e foldings has run
-do while(Nei <= Ne0approx .or. Hti>1.0q0)
+! do iRK4 = 2,nRK4
+do while (Hti >= 1.0q0)
 ! 
 ! if ((Hti >= 1.0q0) .and. (Hti < 1.01q0)) then
 !     Ne0 = Nei
@@ -817,23 +788,10 @@ if (Nei >= Newrite + dNewrite) then
     arrayHt(i) = Hti
     Newrite = Nei
 end if
-    if(Htiold >= 1.0q0) then
-        if(Hti<1.0q0) then
-        imax=i
-        endif
-    endif
-    Htiold=Hti
-    !DG add ability to continue pas original end until desired # of e foldings is reached)
-    ! if Nei>Ne0approx when Hf1=1.0q0, want an accurate Hf
-    Hfi=1.0q0
-    if (Nei<Ne0approx) then
-        if(Nei+dNe>Ne0approx) then
-        Hfi=Hti
-    endif
-    endif
+
 end do
-imax = imax-1
-print*,imax,arrayNe(imax),Hfi
+
+imax = i
 
 ! print *,dNe
 
@@ -863,21 +821,32 @@ do i = 1,imax
     ! write(*,*) i,arrayNe(i),arrayHt(i),arraya(i)
     ! write(11,*) arraya(i),arrayHt(i)*arraya(i)**2,HtLCDM(arraya(i),0.3q0,1.0q-4)
 end do
-print*,Nei,Ne0approx,Hti,arraya(imax)
+!print*,Nei,Ne0approx,Hti
 
 
 
 !output rescale factors DG 12/23
 !KR 7/22/2021 not needed as we disuussed
-!DG  7/26 needed but need both h and a factors
-rs_rad=exp(4.q0*(Ne0approx-Ne0))*(Hti**2.q0/(Hfi**2.0q0))
-rs_matter=exp(3.q0*(Ne0approx-Ne0))*(Hti**2.q0/(Hfi**2.0q0))
-ai_new=exp(-Ne0)
+rs_rad=exp(4.q0*(Ne0approx-Ne0))
+rs_matter=exp(3.q0*(Ne0approx-Ne0))
+!print*,CP%omegab*((CP%H0/100.0)**2.0d0),CP%omegac*((CP%H0/100.0)**2.0d0)
+CP%omegab=CP%omegab*rs_matter
+CP%omegac=CP%omegac*rs_matter
+CP%omegan=CP%omegan*rs_matter
+CP%omegav = 1.d0-  CP%omegab-CP%omegac - CP%omegan
+!print*,CP%omegab*((CP%H0/100.0)**2.0d0),CP%omegac*((CP%H0/100.0)**2.0d0)
+!print*,grhog,grhor,grhornomass,H0inMpcinsec
 
-!write(*,*) (Ne0approx-Ne0)
-!write(*,*) rs_rad,rs_matter,ai_new
-!write(*,*) Ne0approx,Ne0
-! close(11)
+  grhornomass=Omegar0*rs_rad*(3.0d0*H0inMpcinsec**2)-grhog
+   ! nu_massless_degeneracy= CP%Num_Nu_massless
+
+!    print*,grhornomass/grhor
+ 
+    !Compute updated number of non-photon free-streaming rel degrees of freedom
+    !needed to get H=H0 not at a=af*2, the stopping point determined by scalar field code
+    
+    CP%Num_Nu_massless=grhornomass/grhor
+    write(*,*) CP%Num_Nu_massless
 
 ! Nea = Ne0 + log(a)
 
