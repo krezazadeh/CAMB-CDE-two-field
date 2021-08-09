@@ -207,7 +207,7 @@ real(dl) :: Ha2LCDM1,Ha2LCDM2,Hta2LCDM1,Hta2LCDM2
     !write(*,*) rhomtinitial ,rhortinitial,phitinitial,chitinitial,lambdaphit,lambdachit
     Hta2value = real(Hta2(real(1,16), &
 & real(rhomtinitial,16),real(rhortinitial,16), &
-& real(lambdaphit,16),real(lambdachit,16),real(phitinitial,16),real(chitinitial,16)),8)
+& real(lambdaphit,16),real(lambdachit,16),real(phitinitial,16),real(chitinitial,16),P),8)
    ! write(*,*) "H0=",Hta2value
 !    write(*,*),rs_rad,rs_matter,ai_new
   
@@ -216,18 +216,18 @@ real(dl) :: Ha2LCDM1,Ha2LCDM2,Hta2LCDM1,Hta2LCDM2
     !7/24 DG believes they do, but need to include both h and a ratios, now should be good
     !still need to implement derived parameters.
   
-   P%omegab = P%omegab*rs_matter
-   P%omegac = P%omegac*rs_matter
-   P%omegan=P%omegan*rs_matter
+ !  P%omegab = P%omegab*rs_matter
+ !  P%omegac = P%omegac*rs_matter
+  ! P%omegan=P%omegan*rs_matter
    P%omegav = 1- Ini_Read_Double('omk') - P%omegab-P%omegac - P%omegan
    
-   write(*,*) P%omegab*P%h0*P%h0/1.e4,P%omegac*P%h0*P%h0/1.e4,P%omegan*P%h0*P%h0/1.e4,&
-   &P%omegav
-    
+  !  write(*,*) P%omegab*P%h0*P%h0/1.e4,P%omegac*P%h0*P%h0/1.e4,P%omegan*P%h0*P%h0/1.e4,&
+!    &P%omegav
+!     
     aitoa0approx = ai_new
     
     
-    
+    ! 
 !     rhomtinitialflag=0.e0
 !     rhortinitialflag=0.e0
 !     lambdaphitflag=0.e0

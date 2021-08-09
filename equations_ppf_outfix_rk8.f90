@@ -257,6 +257,7 @@ logical :: isHta2tested
 common /logicalisHta2tested/ isHta2tested
 real(16) :: log10ainitial,log10afinal,atest
 integer :: i,ni
+type(CAMBparams)  P
 ! End KR Jun 9
 
 !{
@@ -379,7 +380,7 @@ Ha2LCDM2 = H0inMpcinsec*Hta2LCDM2
 
 Hta2value = real(Hta2(real(a,16), &
 & real(rhomtinitial,16),real(rhortinitial,16), &
-& real(lambdaphit,16),real(lambdachit,16),real(phitinitial,16),real(chitinitial,16)),8)
+& real(lambdaphit,16),real(lambdachit,16),real(phitinitial,16),real(chitinitial,16),P),8)
 
 ! write(*,*) "Hta20value = ", real(Hta2(real(1.0q0,16), &
 ! & real(rhomtinitial,16),real(rhortinitial,16), &
@@ -408,7 +409,7 @@ do i = 1,ni
     atest = 10.0q0**(log10ainitial + (log10afinal - log10ainitial)*real(i - 1,16)/real(ni - 1,16))
     write(11,"(2e25.16)") atest, &
     &    Hta2(atest,rhomtinitial,rhortinitial,lambdaphit,lambdachit,&
-    & phitinitial,chitinitial)/atest**2
+    & phitinitial,chitinitial,P)/atest**2
 end do
 
 close(11)
@@ -442,8 +443,8 @@ end function Hta2LCDM
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 function Hta2(ainput,rhomtinitialinput,rhortinitialinput,lambdaphitinput, &
-     & lambdachitinput,phitinitialinput,chitinitialinput)
-
+     & lambdachitinput,phitinitialinput,chitinitialinput,P)
+use ModelParams
 implicit none
 
 real(16) :: ainput,rhomtinitialinput,rhortinitialinput,lambdaphitinput, &
@@ -505,7 +506,7 @@ real(16) stepHt(10),stepphi(10),stepchi(10), stepphip(10), stepchip(10)
 real(16) :: HtLCDM
 
 integer :: leftpoint,rightpoint,midpoint
-
+type(CAMBparams)  P
 ! open(unit=11,file='Ht_a.dat')
 
 E = 2.7182818284590452353602874713526624977572470937000q0
@@ -545,6 +546,7 @@ if ((rhomtinitial == rhomtinitialflag) .and. (rhortinitial == rhortinitialflag) 
     & .and. (phitinitial == phitinitialflag) .and. (chitinitial == chitinitialflag)) then
     goto 594
 end if
+
 !write(*,*) 'cheese'
 
 rhomtinitialflag = rhomtinitial
@@ -847,6 +849,10 @@ print*,Nei,Ne0approx,Hti
 !KR 7/22/2021 not needed as we disuussed
 rs_rad=exp(4.q0*(Ne0approx-Ne0))
 rs_matter=exp(3.q0*(Ne0approx-Ne0))
+P%omegab=P%omegab*rs_matter
+P%omegac=P%omegac*rs_matter
+P%omegan=P%omegan*rs_matter
+
 ai_new=exp(-Ne0)
 
 !write(*,*) (Ne0approx-Ne0)
