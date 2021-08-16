@@ -1,6 +1,6 @@
 
 #Files containing evolution equations initial power spectrum module
-EQUATIONS     ?= equations_ppf_outfix_rk8_a
+EQUATIONS     ?= equations_ppf_outfix_rk8
 POWERSPECTRUM ?= power_tilt
 REIONIZATION ?= reionization
 RECOMBINATION ?= recfast
