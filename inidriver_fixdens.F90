@@ -187,6 +187,7 @@ real(dl) :: Ha2LCDM1,Ha2LCDM2,Hta2LCDM1,Hta2LCDM2
 
     Omegam0 = real((grhoc + grhob)/(3.0d0*H0inMpcinsec**2),16)
     Omegar0 = real((grhog + grhornomass)/(3.0d0*H0inMpcinsec**2),16)
+   ! print*,nu_massless_degeneracy,grhor,grhornomass
     aitoa0approx = 1.0q-5
 
     rhomtinitial = 3.0q0*Omegam0*aitoa0approx**(-3.0q0)
