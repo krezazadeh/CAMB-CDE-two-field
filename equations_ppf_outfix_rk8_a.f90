@@ -846,7 +846,7 @@ CP%omegav = 1.d0-  CP%omegab-CP%omegac - CP%omegan
     !needed to get H=H0 not at a=af*2, the stopping point determined by scalar field code
     
     CP%Num_Nu_massless=grhornomass/grhor
-    write(*,*) CP%Num_Nu_massless
+    write(*,*) CP%Num_Nu_massless,CP%Num_Nu_massive
 
 ! Nea = Ne0 + log(a)
 
