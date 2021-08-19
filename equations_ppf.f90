@@ -231,7 +231,7 @@ integer nu_i
 
 real(dl) :: grhov_t
 
-real(16) :: Omegam0,Omegar0,lambdaphit,lambdachit,phitinitial,chitinitial
+real(16) :: Omegam0,Omegar0,lambdachit,phitinitial,chitinitial
 
 real(16) :: Hta2LCDM,Hta2
 
@@ -266,7 +266,7 @@ Omegar0 = real((grhog + grhornomass)/(3.0d0*H0inMpcinsec**2),16)
 
 phitinitial = real(myparameter1,16)
 chitinitial = real(myparameter2,16)
-lambdaphit = real(10.0d0**myparameter3,16)
+! lambdaphit = real(10.0d0**myparameter3,16)
 lambdachit = real(10.0d0**myparameter4,16)
 
 Ha2LCDM1 = sqrt(grhoa2/3.0d0)
@@ -279,7 +279,7 @@ Hta2LCDM2 = Hta2LCDMvalue
 
 ! Ha2LCDM2 = H0inMpcinsec*Hta2LCDM2
 
-Hta2value = real(Hta2(real(a,16), Omegam0, Omegar0, lambdaphit, lambdachit, phitinitial, chitinitial), 8)
+Hta2value = real(Hta2(real(a,16), Omegam0, Omegar0, lambdachit, phitinitial, chitinitial), 8)
 
 Ha2 = (Hta2value/Hta2LCDMvalue)*Ha2LCDM1
 
@@ -309,18 +309,22 @@ end function Hta2LCDM
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-function Hta2(ainput,Omegam0input,Omegar0input,lambdaphitinput, &
+function Hta2(ainput,Omegam0input,Omegar0input, &
      & lambdachitinput,phitinitialinput,chitinitialinput)
 
 implicit none
 
-real(16) :: ainput,Omegam0input,Omegar0input,lambdaphitinput, &
+real(16) :: ainput,Omegam0input,Omegar0input, &
             &   lambdachitinput,phitinitialinput,chitinitialinput
 real(16) :: Hta2
 
-real(16) :: Omegam0,Omegar0,lambdaphit,lambdachit,phitinitial,chitinitial
-common /inputparametersofHta2/ Omegam0,Omegar0,lambdaphit,lambdachit, &
-        & phitinitial,chitinitial
+real(16) :: Omegam0,Omegar0,lambdachit,phitinitial,chitinitial
+common /inputparametersofHta2/ Omegam0,Omegar0,lambdachit,phitinitial,chitinitial
+
+real(16) :: lambdaphit
+common /lambdaphit/ lambdaphit
+
+real(16) :: lambdaphitold
 
 real(16) :: rhomtinitial, rhortinitial
 common /rhotinitial/ rhomtinitial, rhortinitial
@@ -330,19 +334,25 @@ real(16), dimension(100000) :: arrayNe
 real(16), dimension(100000) :: arraya,arrayHt
 common /arrays/ arraya,arrayHt
 
+! store background
+! real(16), dimension(100000) :: arraya,arrayHt,arrayphit,arraychit,arrayphitp,arraychitp
+! common /arrays/ arraya,arrayHt,arrayphit,arraychit,arrayphitp,arraychitp
+
 integer :: imax
 common /arrayindex/ imax
 
-real(16) :: Omegam0flag,Omegar0flag,lambdaphitflag,lambdachitflag,phitinitialflag, &
+real(16) :: Omegam0flag,Omegar0flag,lambdachitflag,phitinitialflag, &
             & chitinitialflag
-common /flags/ Omegam0flag,Omegar0flag,lambdaphitflag,lambdachitflag,phitinitialflag, &
+common /flags/ Omegam0flag,Omegar0flag,lambdachitflag,phitinitialflag, &
             & chitinitialflag
 
 integer :: i
 
 real(16) :: Neinitial,Htinitial,phitpinitial,chitpinitial
 real(16) :: aitoa0approx,Ne0approx
-real(16) :: Ne0, deltaNe
+real(16) :: Ne0
+
+real(16) :: phit0,chit0,phitp0,chitp0
 
 real(16) :: dNe
 
@@ -360,35 +370,41 @@ integer :: leftpoint,rightpoint,midpoint
 
 Omegam0 = Omegam0input
 Omegar0 = Omegar0input
-lambdaphit = lambdaphitinput
 lambdachit = lambdachitinput
 phitinitial = phitinitialinput
 chitinitial = chitinitialinput
 
 if ((Omegam0 == Omegam0flag) .and. (Omegar0 == Omegar0flag) .and. &
-    & (lambdaphit == lambdaphitflag) .and. (lambdachit == lambdachitflag) &
-    & .and. (phitinitial == phitinitialflag) .and. (chitinitial == chitinitialflag)) then
+    & (lambdachit == lambdachitflag) .and. (phitinitial == phitinitialflag) .and. (chitinitial == chitinitialflag)) then
     goto 110
 end if
 
 Omegam0flag = Omegam0
 Omegar0flag = Omegar0
-lambdaphitflag = lambdaphit
 lambdachitflag = lambdachit
 phitinitialflag = phitinitial
 chitinitialflag = chitinitial
 
-Neinitial = 0.0q0
-
-Ne0approx = 17.294q0 - 0.23278184230014304q0*(log(Omegar0) + 9.210340371976184q0)
-
-aitoa0approx = exp(-Ne0approx)
-
-deltaNe = 1.0q0
-do while (deltaNe >= 1.0q-4)
+aitoa0approx = 1.0q-5
+Ne0approx = -log(aitoa0approx)
 
 rhomtinitial = 3.0q0*Omegam0*aitoa0approx**(-3.0q0)
 rhortinitial = 3.0q0*Omegar0*aitoa0approx**(-4.0q0)
+
+phit0 = phitinitial
+chit0 = 0.0q0
+phitp0 = 0.0q0
+chitp0 = 0.0q0
+
+lambdaphitold = 0.0q0
+
+lambdaphit = (12.0q0 - 2.0q0*phitp0**2 - lambdachit*chit0**4 - 2.0q0*chitp0**2 - &
+     &    12.0q0*Omegam0 - 12.0q0*Omegar0)/phit0**4
+
+! write(*,*) "lambdaphit = ", lambdaphit
+! write(*,*) "deltalambdaphit = ", abs((lambdaphit - lambdaphitold)/lambdaphit)
+
+do while (abs((lambdaphit - lambdaphitold)/lambdaphit) >= 1.0q-3)
 
 phitpinitial = (-4.0q0*lambdaphit*phitinitial**3.0q0)/ &
                  &  ((4.0q0*rhomtinitial)/exp(3.0q0*Neinitial) + (4.0q0*rhortinitial)/ &
@@ -396,14 +412,16 @@ phitpinitial = (-4.0q0*lambdaphit*phitinitial**3.0q0)/ &
                  &    lambdaphit*phitinitial**4.0q0 + lambdachit*chitinitial**4.0q0)
 
 chitpinitial = (-4.0q0*lambdachit*chitinitial**3.0q0)/ &
-                 &  ((4.0q0*rhomtinitial)/exp(3.0q0*Neinitial) + (4.0q0*rhortinitial)/ &
-                 & exp(4.0q0*Neinitial) + &
-                 &    lambdaphit*phitinitial**4.0q0 + lambdachit*chitinitial**4.0q0)
+    &  ((4.0q0*rhomtinitial)/exp(3.0q0*Neinitial) + (4.0q0*rhortinitial)/ &
+    & exp(4.0q0*Neinitial) + &
+    &    lambdaphit*phitinitial**4.0q0 + lambdachit*chitinitial**4.0q0)
 
-Htinitial = ((-(((4.0q0*(exp(Neinitial)*rhomtinitial + rhortinitial))/exp(4.0q0*Neinitial) + &
-               &        lambdaphit*phitinitial**4.0q0 + lambdachit*chitinitial**4.0q0)/ &
-               &      (-6.0q0 + phitpinitial**2.0q0 + chitpinitial**2.0q0)))/(2.0q0))**(0.5q0)
+Htinitial = ((-(((4.0q0*(exp(Neinitial)*rhomtinitial + &
+    &    rhortinitial))/exp(4.0q0*Neinitial) + &
+    &        lambdaphit*phitinitial**4.0q0 + lambdachit*chitinitial**4.0q0)/ &
+    &      (-6.0q0 + phitpinitial**2.0q0 + chitpinitial**2.0q0)))/(2.0q0))**(0.5q0)
 
+Neinitial = 0.0q0
 dNe = 1.0q-3
 
 i = 1
@@ -417,6 +435,12 @@ chitpi = chitpinitial
 
 arrayNe(i) = Nei
 arrayHt(i) = Hti
+
+! store background
+! arrayphit(i) = phiti
+! arraychit(i) = chiti
+! arrayphitp(i) = phitpi
+! arraychitp(i) = chitpi
 
 do while (Hti >= 1.0q0)
 
@@ -651,24 +675,50 @@ i = i + 1
 arrayNe(i) = Nei
 arrayHt(i) = Hti
 
+! store background
+! arrayphit(i) = phiti
+! arraychit(i) = chiti
+! arrayphitp(i) = phitpi
+! arraychitp(i) = chitpi
+
 end do
 
 imax = i
 
 Ne0 = Nei
 
-deltaNe = Ne0 - Ne0approx
+phit0 = phiti
+chit0 = chiti
+phitp0 = phitpi
+chitp0 = chitpi
 
-Ne0approx = Ne0
+lambdaphitold = lambdaphit
 
-aitoa0approx = exp(-Ne0approx)
+lambdaphit = (12.0q0 - 2.0q0*phitp0**2 - lambdachit*chit0**4 - 2.0q0*chitp0**2 - &
+     &    12.0q0*Omegam0 - 12.0q0*Omegar0)/phit0**4
+
+! write(*,*) "lambdaphit = ", lambdaphit
+! write(*,*) "deltalambdaphit = ", abs((lambdaphit - lambdaphitold)/lambdaphit)
+
+! write(*,*) "deltaNe = ", Ne0 - Ne0approx
 
 end do
+
+! store background
+! open(unit=11,file='background.txt')
 
 do i = 1, imax
     ! log(a)
     arraya(i) = arrayNe(i) - Ne0
+
+    ! store background
+    ! write(11,"(6e25.16)") exp(arraya(i)), arrayHt(i), arrayphit(i), &
+    ! & arraychit(i), arrayphitp(i), arraychitp(i)
+
 end do
+
+! store background
+! close(11)
 
 110 if (log(ainput) <= arraya(1)) then
 
@@ -716,12 +766,12 @@ function dHt(Ne,Ht,phit,chit,phitp,chitp)
     real(16) :: Ne,Ht,phit,chit,phitp,chitp
     real(16) :: dHt
 
-    real(16) :: E
-    common /constants/ E
-
-    real(16) :: Omegam0,Omegar0,lambdaphit,lambdachit,phitinitial,chitinitial
-    common /inputparametersofHta2/ Omegam0,Omegar0,lambdaphit,lambdachit, &
+    real(16) :: Omegam0,Omegar0,lambdachit,phitinitial,chitinitial
+    common /inputparametersofHta2/ Omegam0,Omegar0,lambdachit, &
             & phitinitial,chitinitial
+
+    real(16) :: lambdaphit
+    common /lambdaphit/ lambdaphit
 
     real(16) :: rhomtinitial, rhortinitial
     common /rhotinitial/ rhomtinitial, rhortinitial
@@ -768,12 +818,12 @@ function dphitp(Ne,Ht,phit,chit,phitp,chitp)
     real(16) :: Ne,Ht,phit,chit,phitp,chitp
     real(16) :: dphitp
 
-    real(16) :: E
-    common /constants/ E
-
-    real(16) :: Omegam0,Omegar0,lambdaphit,lambdachit,phitinitial,chitinitial
-    common /inputparametersofHta2/ Omegam0,Omegar0,lambdaphit,lambdachit, &
+    real(16) :: Omegam0,Omegar0,lambdachit,phitinitial,chitinitial
+    common /inputparametersofHta2/ Omegam0,Omegar0,lambdachit, &
             & phitinitial,chitinitial
+
+    real(16) :: lambdaphit
+    common /lambdaphit/ lambdaphit
 
     real(16) :: rhomtinitial, rhortinitial
     common /rhotinitial/ rhomtinitial, rhortinitial
@@ -795,12 +845,12 @@ function dchitp(Ne,Ht,phit,chit,phitp,chitp)
     real(16) :: Ne,Ht,phit,chit,phitp,chitp
     real(16) :: dchitp
 
-    real(16) :: E
-    common /constants/ E
-
-    real(16) :: Omegam0,Omegar0,lambdaphit,lambdachit,phitinitial,chitinitial
-    common /inputparametersofHta2/ Omegam0,Omegar0,lambdaphit,lambdachit, &
+    real(16) :: Omegam0,Omegar0,lambdachit,phitinitial,chitinitial
+    common /inputparametersofHta2/ Omegam0,Omegar0,lambdachit, &
             & phitinitial,chitinitial
+
+    real(16) :: lambdaphit
+    common /lambdaphit/ lambdaphit
 
     real(16) :: rhomtinitial, rhortinitial
     common /rhotinitial/ rhomtinitial, rhortinitial

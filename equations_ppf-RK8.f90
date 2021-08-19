@@ -385,7 +385,7 @@ Ne0approx = 17.294q0 - 0.23278184230014304q0*(log(Omegar0) + 9.210340371976184q0
 aitoa0approx = exp(-Ne0approx)
 
 deltaNe = 1.0q0
-do while (deltaNe >= 1.0q-4)
+do while (deltaNe >= 1.0q-3)
 
 rhomtinitial = 3.0q0*Omegam0*aitoa0approx**(-3.0q0)
 rhortinitial = 3.0q0*Omegar0*aitoa0approx**(-4.0q0)
