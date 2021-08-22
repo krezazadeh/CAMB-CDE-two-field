@@ -266,7 +266,7 @@ H0inMpcinsec = (CP%H0)*1.0d3/c
 Omegam0 = real((grhoc + grhob)/(3.0d0*H0inMpcinsec**2),16)
 Omegar0 = real((grhog + grhornomass)/(3.0d0*H0inMpcinsec**2),16)
 
-phitinitial = real(10.0d0**myparameter1,16)
+phitinitial = real(myparameter1,16)
 chitinitial = real(myparameter2,16)
 ! lambdaphit = real(10.0d0**myparameter3,16)
 lambdachit = real(10.0d0**myparameter4,16)
