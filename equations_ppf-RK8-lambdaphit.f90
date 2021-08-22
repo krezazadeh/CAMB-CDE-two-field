@@ -1,5 +1,3 @@
-! equations_ppf-RK8-lambdaphit-store_background.f90
-
     ! Equations module for dark energy with constant equation of state parameter w
     ! allowing for perturbations based on a quintessence model
     ! by Antony Lewis (http://cosmologist.info/)
@@ -239,9 +237,9 @@ real(16) :: Hta2LCDM,Hta2
 
 real(dl) :: H0inMpcinsec
 
-real(dl) :: Hta2LCDM1,Hta2LCDM2,Ha2LCDM1,Ha2LCDM2
+real(dl) :: Hta2LCDM1,Hta2LCDM2,Hta2LCDMvalue,Ha2LCDM1,Ha2LCDM2
 
-real(16) :: Hta2LCDMvalue,Hta2value,Ha2
+real(dl) :: Hta2value,Ha2
 
 a2=a**2
 
@@ -275,19 +273,17 @@ Ha2LCDM1 = sqrt(grhoa2/3.0d0)
 
 Hta2LCDM1 = Ha2LCDM1/H0inMpcinsec
 
-Hta2LCDMvalue = Hta2LCDM(real(a,16), Omegam0, Omegar0)
+Hta2LCDMvalue = real(Hta2LCDM(real(a,16), Omegam0, Omegar0), 8)
 
 Hta2LCDM2 = Hta2LCDMvalue
 
-!! Ha2LCDM2 = H0inMpcinsec*Hta2LCDM2
+! Ha2LCDM2 = H0inMpcinsec*Hta2LCDM2
 
-Hta2value = Hta2(real(a,16), Omegam0, Omegar0, lambdachit, phitinitial, chitinitial)
+Hta2value = real(Hta2(real(a,16), Omegam0, Omegar0, lambdachit, phitinitial, chitinitial), 8)
 
-! Ha2 = Ha2LCDM1
-! Ha2 = H0inMpcinsec*Hta2value
 Ha2 = (Hta2value/Hta2LCDMvalue)*Ha2LCDM1
 
-dtauda = real(1.0q0/Ha2, 8)
+dtauda = 1.0d0/Ha2
 
 end function dtauda
 
@@ -335,12 +331,12 @@ common /rhotinitial/ rhomtinitial, rhortinitial
 
 real(16), dimension(100000) :: arrayNe
 
-! real(16), dimension(100000) :: arraya,arrayHt
-! common /arrays/ arraya,arrayHt
+real(16), dimension(100000) :: arraya,arrayHt
+common /arrays/ arraya,arrayHt
 
 ! store background
-real(16), dimension(100000) :: arraya,arrayHt,arrayphit,arraychit,arrayphitp,arraychitp
-common /arrays/ arraya,arrayHt,arrayphit,arraychit,arrayphitp,arraychitp
+! real(16), dimension(100000) :: arraya,arrayHt,arrayphit,arraychit,arrayphitp,arraychitp
+! common /arrays/ arraya,arrayHt,arrayphit,arraychit,arrayphitp,arraychitp
 
 integer :: imax
 common /arrayindex/ imax
@@ -389,12 +385,6 @@ lambdachitflag = lambdachit
 phitinitialflag = phitinitial
 chitinitialflag = chitinitial
 
-write(*,*) "Omegam0 = ", Omegam0
-write(*,*) "Omegar0 = ", Omegar0
-write(*,*) "lambdachit = ", lambdachit
-write(*,*) "phitinitial = ", phitinitial
-write(*,*) "chitinitial = ", chitinitial
-
 aitoa0approx = 1.0q-5
 Ne0approx = -log(aitoa0approx)
 
@@ -408,15 +398,10 @@ chitp0 = 0.0q0
 
 lambdaphitold = 0.0q0
 
-! lambdaphit = (12.0q0 - 2.0q0*phitp0**2 - lambdachit*chit0**4 - 2.0q0*chitp0**2 - &
-!      &    12.0q0*Omegam0 - 12.0q0*Omegar0)/phit0**4
-
-lambdaphit = (12.0q0 - 2.0q0*phitp0**2 - 2.0q0*chitp0**2 - &
+lambdaphit = (12.0q0 - 2.0q0*phitp0**2 - lambdachit*chit0**4 - 2.0q0*chitp0**2 - &
      &    12.0q0*Omegam0 - 12.0q0*Omegar0)/phit0**4
 
-! lambdaphit = 10.0q0**(-4.45)
-
-write(*,*) "lambdaphit = ", lambdaphit
+! write(*,*) "lambdaphit = ", lambdaphit
 ! write(*,*) "deltalambdaphit = ", abs((lambdaphit - lambdaphitold)/lambdaphit)
 
 do while (abs((lambdaphit - lambdaphitold)/lambdaphit) >= 1.0q-3)
@@ -452,12 +437,12 @@ arrayNe(i) = Nei
 arrayHt(i) = Hti
 
 ! store background
-arrayphit(i) = phiti
-arraychit(i) = chiti
-arrayphitp(i) = phitpi
-arraychitp(i) = chitpi
+! arrayphit(i) = phiti
+! arraychit(i) = chiti
+! arrayphitp(i) = phitpi
+! arraychitp(i) = chitpi
 
-do while (Hti > 1.0q0)
+do while (Hti >= 1.0q0)
 
 Neim1 = Nei
 Htim1 = Hti
@@ -691,10 +676,10 @@ arrayNe(i) = Nei
 arrayHt(i) = Hti
 
 ! store background
-arrayphit(i) = phiti
-arraychit(i) = chiti
-arrayphitp(i) = phitpi
-arraychitp(i) = chitpi
+! arrayphit(i) = phiti
+! arraychit(i) = chiti
+! arrayphitp(i) = phitpi
+! arraychitp(i) = chitpi
 
 end do
 
@@ -702,48 +687,38 @@ imax = i
 
 Ne0 = Nei
 
-arrayHt(imax) = 1.0q0
-
 phit0 = phiti
-! phit0 = phitinitial
-! chit0 = chiti
-chit0 = 0.0q0
+chit0 = chiti
 phitp0 = phitpi
-! phitp0 = 0.0q0
 chitp0 = chitpi
-! chitp0 = 0.0q0
 
 lambdaphitold = lambdaphit
 
-! lambdaphit = (12.0q0 - 2.0q0*phitp0**2 - lambdachit*chit0**4 - 2.0q0*chitp0**2 - &
-!      &    12.0q0*Omegam0 - 12.0q0*Omegar0)/phit0**4
-
-lambdaphit = (12.0q0 - 2.0q0*phitp0**2 - 2.0q0*chitp0**2 - &
+lambdaphit = (12.0q0 - 2.0q0*phitp0**2 - lambdachit*chit0**4 - 2.0q0*chitp0**2 - &
      &    12.0q0*Omegam0 - 12.0q0*Omegar0)/phit0**4
 
-write(*,*) "lambdaphit = ", lambdaphit
+! write(*,*) "lambdaphit = ", lambdaphit
 ! write(*,*) "deltalambdaphit = ", abs((lambdaphit - lambdaphitold)/lambdaphit)
 
-write(*,*) "deltaNe = ", Ne0 - Ne0approx
+! write(*,*) "deltaNe = ", Ne0 - Ne0approx
 
 end do
 
 ! store background
-open(unit=11,file='background.txt')
+! open(unit=11,file='background.txt')
 
 do i = 1, imax
     ! log(a)
-    ! arraya(i) = arrayNe(i) - Ne0
-    arraya(i) = log(aitoa0approx) - log(aitoa0approx)*(arrayNe(i))/(arrayNe(imax))
+    arraya(i) = arrayNe(i) - Ne0
 
     ! store background
-    write(11,"(6e25.16)") exp(arraya(i)), arrayHt(i), arrayphit(i), &
-    & arraychit(i), arrayphitp(i), arraychitp(i)
+    ! write(11,"(6e25.16)") exp(arraya(i)), arrayHt(i), arrayphit(i), &
+    ! & arraychit(i), arrayphitp(i), arraychitp(i)
 
 end do
 
 ! store background
-close(11)
+! close(11)
 
 110 if (log(ainput) <= arraya(1)) then
 
