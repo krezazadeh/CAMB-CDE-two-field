@@ -270,6 +270,10 @@
     real(dl), save :: last_tau0
     !Constants in SI units
 
+    ! KR
+    ! real(8) :: Dtrycamb
+    ! common /Dtrycamb/ Dtrycamb
+
     global_error_flag = 0
 
     if ((P%WantTensors .or. P%WantVectors).and. P%WantTransfer .and. .not. P%WantScalars) then
@@ -421,6 +425,10 @@
         return
     end if
 
+    ! KR
+    ! Dtrycamb = CosmomcTheta()
+    ! write(*,*) "Dtrycamb = ", Dtrycamb
+
     if (present(error)) then
         error = 0
     else if (FeedbackLevel > 0 .and. .not. call_again) then
@@ -531,6 +539,12 @@
     else
         atol = tol/1000/exp(AccuracyBoost-1)
     end if
+
+    ! KR
+    ! Important: Here, dtauda is called for the first time.
+    ! Here the background is computed incorrectly.
+    ! write(*,*) "DeltaTime"
+
     DeltaTime=rombint(dtauda,a1,a2,atol)
 
     end function DeltaTime
@@ -539,6 +553,10 @@
     implicit none
     real(dl) TimeOfz
     real(dl), intent(IN) :: z
+
+    ! KR
+    ! Here, DeltaTime is called for the first time.
+    ! write(*,*) "TimeOfz - DeltaTime"
 
     TimeOfz=DeltaTime(0._dl,1._dl/(z+1._dl))
     end function TimeOfz

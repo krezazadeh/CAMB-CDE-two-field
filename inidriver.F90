@@ -110,21 +110,10 @@
     myparameter6 = Ini_Read_Double('myparameter6')
 
     P%h0     = Ini_Read_Double('hubble')
-    ! P%h0     = myparameter5
-    ! write(*,*) "H0 = ",P%h0
 
     if (Ini_Read_Logical('use_physical',.false.)) then
-
         P%omegab = Ini_Read_Double('ombh2')/(P%H0/100)**2
-        ! P%omegab = 0.04870803869261143d0
-        ! P%omegab = Ini_Read_Double('myparameter5')
-        ! write(*,*) "omegab",P%omegab
-
         P%omegac = Ini_Read_Double('omch2')/(P%H0/100)**2
-        ! P%omegac = 0.2562090292133542d0
-        ! P%omegac = Ini_Read_Double('myparameter6')
-        ! write(*,*) "omegac",P%omegac
-
         P%omegan = Ini_Read_Double('omnuh2')/(P%H0/100)**2
         P%omegav = 1- Ini_Read_Double('omk') - P%omegab-P%omegac - P%omegan
     else
