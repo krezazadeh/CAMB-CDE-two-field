@@ -586,7 +586,7 @@ Htinitial = ((-(((4.0q0*(E**Neinitial*rhomtinitial + rhortinitial))/E**(4.0q0*Ne
 Nechit1 = Neinitial
 Nechit2 = Nechit1 + 1.0q0
 deltaNechit = min(1.0q0,abs(Nechit2 - Nechit1))
-dNe = deltaNechit/4.0q2
+dNe = deltaNechit/1.0q3
 !dNe = 1.0q-4
 
 dNewrite = 1.0q-3
@@ -810,7 +810,7 @@ if (Nei >= Newrite + dNewrite) then
 end if
 
 end do
-
+print*,phiti,chiti
 imax = i
 
 ! print *,dNe
