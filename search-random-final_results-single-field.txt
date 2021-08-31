@@ -1,0 +1,13 @@
+ omegabh2result =   2.237428426411103E-002
+ omegach2result =   0.118017932504415
+ thetaresult =    1.04119972880068
+ tauresult =   5.904261802350282E-002
+
+# log(phitinitial
+ myparameter1result =    1.18108300015891
+
+ logAresult =    3.04758585619118
+ nsresult =   0.966341258945791
+ H0result =    68.0151367187500
+ log10lambdaphitresult =   -3.79560454977973
+ chi2totalresult =    3931.79324969951
