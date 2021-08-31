@@ -1,5 +1,3 @@
-! equations_ppf-store_background-final.f90
-
     ! Equations module for dark energy with constant equation of state parameter w
     ! allowing for perturbations based on a quintessence model
     ! by Antony Lewis (http://cosmologist.info/)
@@ -233,16 +231,74 @@ integer nu_i
 
 real(dl) :: grhov_t
 
-real(16) :: Omegam0,Omegar0,lambdachit,phitinitial,chitinitial
+real(dl) :: grhoa20,dtauda0,H0dtauda
 
-real(16) :: Hta2LCDM,Hta2
+real(16) :: Omegam0,Omegar0,rs_matter,rs_rad,ai_new
+real(16) :: rhomtinitial,rhortinitial,lambdaphit,lambdachit,phitinitial,chitinitial
 
-real(dl) :: H0inMpcinsec
+common /densityparameters/ Omegam0,Omegar0
+!,aitoa0approx
+common /inputparametersofHta/ rhomtinitial,rhortinitial,lambdaphit,lambdachit, &
+            & phitinitial,chitinitial,rs_matter,rs_rad,ai_new
 
-real(dl) :: Hta2LCDM1,Hta2LCDM2,Ha2LCDM1,Ha2LCDM2
+real(16) :: Hta2,Hta2LCDM
 
-real(16) :: Hta2LCDMvalue,Hta2value,Ha2
+real(16) :: Hta2value,Hta2LCDMvalue
 
+real(16) :: aitoa0approx
+
+real(dl) :: var1,var2,var3,var4,var5
+
+real(dl) :: Ha2,Ha2LCDM,H0inMpcinsec
+
+real(dl) :: Ha2LCDM1,Ha2LCDM2,Hta2LCDM1,Hta2LCDM2
+
+! KR Jun 9
+logical :: isHta2tested
+common /logicalisHta2tested/ isHta2tested
+common /hvec/ H0inMpcinsec 
+real(16) :: log10ainitial,log10afinal,atest
+integer :: i,ni
+!type(CAMBparams)  P
+! End KR Jun 9
+
+!{
+
+! a2=a**2
+!
+! !  8*pi*G*rho*a**4.
+grhoa20=grhok+(grhoc+grhob)+grhog+grhornomass
+if (is_cosmological_constant) then
+    grhoa20=grhoa20+grhov
+else
+    grhoa20=grhoa20+ grho_de(a)
+end if
+
+if (CP%Num_Nu_massive /= 0) then
+    !Get massive neutrino density relative to massless
+    do nu_i = 1, CP%nu_mass_eigenstates
+        call Nu_rho(nu_masses(nu_i),rhonu)
+        grhoa20=grhoa20+rhonu*grhormass(nu_i)
+    end do
+end if
+
+! grhoa20=grhok+(grhoc+grhob)+(grhog+grhornomass)+grhov
+
+dtauda0 = sqrt(3/grhoa20)
+
+H0inMpcinsec = (1.0d0/dtauda0)
+
+! write(*,*) "H0input = ",CP%H0
+! write(*,*) "H0output = ",H0inMpcinsec*(c/1.0d3)
+
+! H0dtauda = (1.0d0/dtauda0)*(c/1.0d3)
+
+! dtauda=sqrt(3/grhoa2)
+
+!}
+
+! {
+! Original
 a2=a**2
 
 !  8*pi*G*rho*a**4.
@@ -261,33 +317,108 @@ if (CP%Num_Nu_massive /= 0) then
     end do
 end if
 
-H0inMpcinsec = (CP%H0)*1.0d3/c
+! dtauda=sqrt(3/grhoa2)
+! End Original
+! }
 
-Omegam0 = real((grhoc + grhob)/(3.0d0*H0inMpcinsec**2),16)
-Omegar0 = real((grhog + grhornomass)/(3.0d0*H0inMpcinsec**2),16)
+! {
+! Don't use these.
+! H0inMpcinsec = (CP%H0)*1.0d3/c
+!
+! Omegam0 = real((grhoc + grhob)/(3.0d0*H0inMpcinsec**2),16)
+! Omegar0 = real((grhog + grhornomass)/(3.0d0*H0inMpcinsec**2),16)
+
+! Omegam0 = 0.307863403944485081176196672458900q0
+! Omegar0 = 7.639534905700167603890410328304483q-5
+
+! H0inMpcinsec = (CP%H0)*1.0d3/c
+
+! Omegam0 = 0.3134q0
+! Omegar0 = 7.639534905700167603890410328304483q-5
+! Omegar0 = real((grhog + grhornomass)/(3.0d0*H0inMpcinsec**2),16)
+! }
+
+! H0inMpcinsec = (CP%H0)*1.0d3/c
+
+!Omegam0 = real((grhoc + grhob)/(3.0d0*H0inMpcinsec**2),16)
+!Omegar0 = real((grhog + grhornomass)/(3.0d0*H0inMpcinsec**2),16)
+
+! write(*,*) "Omegam0 = ",Omegam0
+! write(*,*) "Omegar0 = ",Omegar0
+
+!aitoa0approx = 1.0q-5
+
+!rhomtinitial = 3.0q0*Omegam0*aitoa0approx**(-3.0q0)
+!rhortinitial = 3.0q0*Omegar0*aitoa0approx**(-4.0q0)
+!write(*,*) rhomtinitial
+! var1 = myparameter1
+! var2 = myparameter2
+! var3 = 10.0d0*myparameter3
+! var4 = 10.0d0**myparameter4
 
 phitinitial = real(myparameter1,16)
 chitinitial = real(myparameter2,16)
-! lambdaphit = real(10.0d0**myparameter3,16)
+lambdaphit = real(10.0d0**myparameter3,16)
 lambdachit = real(10.0d0**myparameter4,16)
+
+!{
 
 Ha2LCDM1 = sqrt(grhoa2/3.0d0)
 
 Hta2LCDM1 = Ha2LCDM1/H0inMpcinsec
 
-Hta2LCDMvalue = Hta2LCDM(real(a,16), Omegam0, Omegar0)
+Hta2LCDMvalue = real(Hta2LCDM(real(a,16), &
+& real(Omegam0,16),real(Omegar0,16)),8)
 
 Hta2LCDM2 = Hta2LCDMvalue
 
-!! Ha2LCDM2 = H0inMpcinsec*Hta2LCDM2
+Ha2LCDM2 = H0inMpcinsec*Hta2LCDM2
 
-Hta2value = Hta2(real(a,16), Omegam0, Omegar0, lambdachit, phitinitial, chitinitial)
+! write(*,*) Hta2LCDM2/Hta2LCDM1
 
-! Ha2 = Ha2LCDM1
-! Ha2 = H0inMpcinsec*Hta2value
+! Ha2 = (Hta2LCDM1/Hta2LCDMvalue)*Ha2LCDM1
+
+! }
+
+Hta2value = real(Hta2(real(a,16), &
+& real(rhomtinitial,16),real(rhortinitial,16), &
+& real(lambdaphit,16),real(lambdachit,16),real(phitinitial,16),real(chitinitial,16)),8)
+
+! write(*,*) "Hta20value = ", real(Hta2(real(1.0q0,16), &
+! & real(rhomtinitial,16),real(rhortinitial,16), &
+! & real(lambdaphit,16),real(lambdachit,16),real(phitinitial,16),real(chitinitial,16)),8)
+
 Ha2 = (Hta2value/Hta2LCDMvalue)*Ha2LCDM1
 
-dtauda = real(1.0q0/Ha2, 8)
+dtauda = 1.0d0/Ha2
+
+! KR Jun 9
+! test Hta2
+
+if (.not. isHta2tested) then
+
+isHta2tested = .true.
+
+! write(*,*) "rhomtinitial = ",rhomtinitial
+! write(*,*) "rhortinitial = ",rhortinitial
+
+open(unit=11,file='a-Ht.txt')
+
+log10ainitial = -5.0q0
+log10afinal = 0.0q0
+ni = 10000
+do i = 1,ni
+    atest = 10.0q0**(log10ainitial + (log10afinal - log10ainitial)*real(i - 1,16)/real(ni - 1,16))
+    write(11,"(2e25.16)") atest, &
+    &    Hta2(atest,rhomtinitial,rhortinitial,lambdaphit,lambdachit,&
+    & phitinitial,chitinitial)/atest**2
+end do
+
+close(11)
+
+end if
+
+! End KR Jun 9
 
 end function dtauda
 
@@ -313,97 +444,85 @@ end function Hta2LCDM
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-function Hta2(ainput,Omegam0input,Omegar0input, &
+function Hta2(ainput,rhomtinitialinput,rhortinitialinput,lambdaphitinput, &
      & lambdachitinput,phitinitialinput,chitinitialinput)
-
+use ModelParams
 implicit none
 
-real(16) :: ainput,Omegam0input,Omegar0input, &
+real(16) :: ainput,rhomtinitialinput,rhortinitialinput,lambdaphitinput, &
             &   lambdachitinput,phitinitialinput,chitinitialinput
-real(16) :: Hta2
+real(16) :: Hta2,aitoa0approx
 
-real(16) :: Omegam0,Omegar0,lambdachit,phitinitial,chitinitial
-common /inputparametersofHta2/ Omegam0,Omegar0,lambdachit,phitinitial,chitinitial
+real(16) :: Omegam0,Omegar0
+common /densityparameters/ Omegam0,Omegar0
+!,aitoa0approx
 
-real(16) :: lambdaphit
-common /lambdaphit/ lambdaphit
+real(16) :: rhomtinitial,rhortinitial,lambdaphit,lambdachit,phitinitial,chitinitial
+real(16) :: rs_matter,rs_rad,ai_new
+common /inputparametersofHta/ rhomtinitial,rhortinitial,lambdaphit,lambdachit, &
+            & phitinitial,chitinitial,rs_matter,rs_rad,ai_new
 
-real(16) :: lambdaphitold
 
-real(16) :: rhomtinitial, rhortinitial
-common /rhotinitial/ rhomtinitial, rhortinitial
-
-real(16), dimension(100000) :: arrayNe
-real(16) cmat(1:10,1:10),kv(1:10),sv(1:10)
-real(16) stepHt(10),stepphi(10),stepchi(10), stepphip(10), stepchip(10)
-real(16) phifeed,chifeed,phipfeed,chipfeed,kfeed,Hfeed
-integer m
-! real(16), dimension(100000) :: arraya,arrayHt
-! common /arrays/ arraya,arrayHt
-
-! store background
-real(16), dimension(100000) :: arraya,arrayHt,arrayphit,arraychit,arrayphitp,arraychitp
-common /arrays/ arraya,arrayHt,arrayphit,arraychit,arrayphitp,arraychitp
+real(16), dimension(100000) :: arraya,arrayHt
+common /arrays/ arraya,arrayHt
 
 integer :: imax
 common /arrayindex/ imax
 
-real(16) :: Omegam0flag,Omegar0flag,lambdachitflag,phitinitialflag, &
+real(16) :: rhomtinitialflag,rhortinitialflag,lambdaphitflag,lambdachitflag,phitinitialflag, &
             & chitinitialflag
-common /flags/ Omegam0flag,Omegar0flag,lambdachitflag,phitinitialflag, &
+common /flags/ rhomtinitialflag,rhortinitialflag,lambdaphitflag,lambdachitflag,phitinitialflag, &
             & chitinitialflag
 
-integer :: i
+! real(16) :: pi = 3.1415926535897932384626433832795028841971693993751q0
+real(16) :: E
+common /constants/ E
 
-real(16) :: Neinitial,Htinitial,phitpinitial,chitpinitial
-real(16) :: aitoa0approx,Ne0approx
-real(16) :: Ne0
+integer :: i,m
 
-real(16) :: phit0,chit0,phitp0,chitp0
+real(16) :: Neinitial,Nefinal,dNe,Newrite,dNewrite
+real(16) :: Htinitial,phiptinitial,chiptinitial
+real(16) :: Ne0approx
+real(16) :: Nechit1,Nechit2,deltaNechit
 
-real(16) :: dNe
-
-real(16) :: Nei,Hti,phiti,chiti,phitpi,chitpi
-real(16) :: Neim1,Htim1,phitim1,chitim1,phitpim1,chitpim1
+! integer :: iRK4,nRK4
+real(16) :: Nei,Hti,phiti,chiti,phipti,chipti
+real(16) :: Neim1,Htim1,phitim1,chitim1,phiptim1,chiptim1
 real(16) :: dHt,dphit,dchit,dphitp,dchitp
-real(16) :: k0101,k0102,k0103,k0104,k0105,k0106,k0107,k0108,k0109,k0110
-real(16) :: k0201,k0202,k0203,k0204,k0205,k0206,k0207,k0208,k0209,k0210
-real(16) :: k0301,k0302,k0303,k0304,k0305,k0306,k0307,k0308,k0309,k0310
-real(16) :: k0401,k0402,k0403,k0404,k0405,k0406,k0407,k0408,k0409,k0410
-real(16) :: k0501,k0502,k0503,k0504,k0505,k0506,k0507,k0508,k0509,k0510
-real(16) :: Netemp,Httemp,phittemp,chittemp,phitptemp,chitptemp
+real(16) :: stepHt1,stepHt2,stepHt3,stepHt4
+real(16) :: stepphi1,stepphi2,stepphi3,stepphi4
+real(16) :: stepchi1,stepchi2,stepchi3,stepchi4
+real(16) :: stepphip1,stepphip2,stepphip3,stepphip4
+real(16) :: stepchip1,stepchip2,stepchip3,stepchip4,kfeed
+real(16):: Hfeed,phifeed,chifeed,phipfeed,chipfeed
+common /hvec/ H0inMpcinsec 
+
+
+
+real(16) :: Ne0 !,Ht0,phit0,chit0,phitp0,chitp0
+! real(16) :: Nea
+
+real(16), dimension(100000) :: arrayNe
+real(16) cmat(1:10,1:10),kv(1:10),sv(1:10)
+real(16) stepHt(10),stepphi(10),stepchi(10), stepphip(10), stepchip(10)
+
+real(16) :: HtLCDM
+real(dl) H0inMpcinsec
 
 integer :: leftpoint,rightpoint,midpoint
+!type(CAMBparams)  CP
+! open(unit=11,file='Ht_a.dat')
 
-Omegam0 = Omegam0input
-Omegar0 = Omegar0input
-lambdachit = lambdachitinput
-phitinitial = phitinitialinput
-chitinitial = chitinitialinput
-
-if ((Omegam0 == Omegam0flag) .and. (Omegar0 == Omegar0flag) .and. &
-    & (lambdachit == lambdachitflag) .and. (phitinitial == phitinitialflag) .and. (chitinitial == chitinitialflag)) then
-    goto 110
-end if
-
-Omegam0flag = Omegam0
-Omegar0flag = Omegar0
-lambdachitflag = lambdachit
-phitinitialflag = phitinitial
-chitinitialflag = chitinitial
-
-! write(*,*) "Omegam0 = ", Omegam0
-! write(*,*) "Omegar0 = ", Omegar0
-! write(*,*) "lambdachit = ", lambdachit
-! write(*,*) "phitinitial = ", phitinitial
-! write(*,*) "chitinitial = ", chitinitial
+E = 2.7182818284590452353602874713526624977572470937000q0
 
 aitoa0approx = 1.0q-5
+!write(*,*) "ait", aitoa0approx
 Ne0approx = -log(aitoa0approx)
-
+!
 rhomtinitial = 3.0q0*Omegam0*aitoa0approx**(-3.0q0)
 rhortinitial = 3.0q0*Omegar0*aitoa0approx**(-4.0q0)
 
+!KR stuff to loop over LAMBDA
 write(*,*) "Omegam0 = ", Omegam0
 write(*,*) "Omegar0 = ", Omegar0
 
@@ -421,62 +540,90 @@ lambdaphitold = 0.0q0
 lambdaphit = (12.0q0 - 2.0q0*phitp0**2 - lambdachit*chit0**4 - 2.0q0*chitp0**2 - &
      &    12.0q0*Omegam0 - 12.0q0*Omegar0)/phit0**4
 
-! Use this in CosmoMC
-! lambdaphit = (12.0q0 - 2.0q0*phitp0**2 - 2.0q0*chitp0**2 - &
-!      &    12.0q0*Omegam0 - 12.0q0*Omegar0)/phit0**4
 
-! lambdaphit = 10.0q0**(-4.45)
 
-! write(*,*) "lambdaphit = ", lambdaphit
-! write(*,*) "deltalambdaphit = ", abs((lambdaphit - lambdaphitold)/lambdaphit)
+if ((rhomtinitial == rhomtinitialflag) .and. (rhortinitial == rhortinitialflag) .and. &
+    & (lambdaphit == lambdaphitflag) .and. (lambdachit == lambdachitflag) &
+    & .and. (phitinitial == phitinitialflag) .and. (chitinitial == chitinitialflag)) then
+    goto 594
+end if
 
-do while (abs((lambdaphit - lambdaphitold)/lambdaphit) >= 1.0q-3)
+!write(*,*) 'cheese'
 
-phitpinitial = (-4.0q0*lambdaphit*phitinitial**3.0q0)/ &
-                 &  ((4.0q0*rhomtinitial)/exp(3.0q0*Neinitial) + (4.0q0*rhortinitial)/ &
-                 & exp(4.0q0*Neinitial) + &
-                 &    lambdaphit*phitinitial**4.0q0 + lambdachit*chitinitial**4.0q0)
-
-chitpinitial = (-4.0q0*lambdachit*chitinitial**3.0q0)/ &
-    &  ((4.0q0*rhomtinitial)/exp(3.0q0*Neinitial) + (4.0q0*rhortinitial)/ &
-    & exp(4.0q0*Neinitial) + &
-    &    lambdaphit*phitinitial**4.0q0 + lambdachit*chitinitial**4.0q0)
-
-Htinitial = ((-(((4.0q0*(exp(Neinitial)*rhomtinitial + &
-    &    rhortinitial))/exp(4.0q0*Neinitial) + &
-    &        lambdaphit*phitinitial**4.0q0 + lambdachit*chitinitial**4.0q0)/ &
-    &      (-6.0q0 + phitpinitial**2.0q0 + chitpinitial**2.0q0)))/(2.0q0))**(0.5q0)
+rhomtinitialflag = rhomtinitial
+rhortinitialflag = rhortinitial
+lambdaphitflag = lambdaphit
+lambdachitflag = lambdachit
+phitinitialflag = phitinitial
+chitinitialflag = chitinitial
 
 Neinitial = 0.0q0
-dNe = 1.0q-3
+
+phiptinitial = (-4.0q0*lambdaphit*phitinitial**3.0q0)/ &
+                 &  ((4.0q0*rhomtinitial)/E**(3.0q0*Neinitial) + (4.0q0*rhortinitial)/ &
+                 & E**(4.0q0*Neinitial) + &
+                 &    lambdaphit*phitinitial**4.0q0 + lambdachit*chitinitial**4.0q0)
+
+chiptinitial = (-4.0q0*lambdachit*chitinitial**3.0q0)/ &
+                 &  ((4.0q0*rhomtinitial)/E**(3.0q0*Neinitial) + (4.0q0*rhortinitial)/ &
+                 & E**(4.0q0*Neinitial) + &
+                 &    lambdaphit*phitinitial**4.0q0 + lambdachit*chitinitial**4.0q0)
+
+Htinitial = ((-(((4.0q0*(E**Neinitial*rhomtinitial + rhortinitial))/E**(4.0q0*Neinitial) + &
+               &        lambdaphit*phitinitial**4.0q0 + lambdachit*chitinitial**4.0q0)/ &
+               &      (-6.0q0 + phiptinitial**2.0q0 + chiptinitial**2.0q0)))/(2.0q0))**(0.5q0)
+
+! Important: Htinitial most be given after phiptinitial and chiptinitial.
+
+! RK4Hphitchitphitpchitp
+
+! nRK4 = 100000
+! dNe = (Nefinal - Neinitial)/dble(nRK4 - 1)
+! dNe = 1.0q-8
+! dNewrite = 1.0q-3
+
+Nechit1 = Neinitial
+Nechit2 = Nechit1 + 1.0q0
+deltaNechit = min(1.0q0,abs(Nechit2 - Nechit1))
+dNe = deltaNechit/4.0q2
+!dNe = 1.0q-4
+
+dNewrite = 1.0q-3
 
 i = 1
 
 Nei = Neinitial
+Newrite = Nei
 Hti = Htinitial
 phiti = phitinitial
 chiti = chitinitial
-phitpi = phitpinitial
-chitpi = chitpinitial
+phipti = phiptinitial
+chipti = chiptinitial
 
+! write(11,*) Nei,Hti,phiti,chiti,"endl"
 arrayNe(i) = Nei
 arrayHt(i) = Hti
 
-! store background
-arrayphit(i) = phiti
-arraychit(i) = chiti
-arrayphitp(i) = phitpi
-arraychitp(i) = chitpi
+! do iRK4 = 2,nRK4
+do while (Hti >= 1.0q0)
+! 
+! if ((Hti >= 1.0q0) .and. (Hti < 1.01q0)) then
+!     Ne0 = Nei
+! end if
 
-do while (Hti > 1.0q0)
+! if (chiti*chitim1 < 0.0q0) then
+!     Nechit1 = Nechit2
+!     Nechit2 = Nei
+!     deltaNechit = min(1.0q0,abs(Nechit2 - Nechit1))
+!     dNe = deltaNechit/1.0q4
+! end if
 
 Neim1 = Nei
 Htim1 = Hti
 phitim1 = phiti
 chitim1 = chiti
-phitpim1 = phitpi
-chitpim1 = chitpi
-
+phiptim1 = phipti
+chiptim1 = chipti
 
 stepHt=0.0q0
 stepphi=0.0q0
@@ -625,13 +772,14 @@ sv(8)=0.0q0
 sv(9)=216.0q0/840.0q0
 sv(10)=41.0q0/840.0q0
 
+
 do m=1,10,1
 kfeed=Neim1+kv(m)
 Hfeed=Htim1+dot_product(cmat(m,1:m),stepHt(1:m))
 phifeed=phitim1+dot_product(cmat(m,1:m),stepphi(1:m))
 chifeed=chitim1+dot_product(cmat(m,1:m),stepchi(1:m))
-phipfeed=phitpim1+dot_product(cmat(m,1:m),stepphip(1:m))
-chipfeed=chitpim1+dot_product(cmat(m,1:m),stepchip(1:m))
+phipfeed=phiptim1+dot_product(cmat(m,1:m),stepphip(1:m))
+chipfeed=chiptim1+dot_product(cmat(m,1:m),stepchip(1:m))
 stepHt(m) = dNe*dHt(kfeed,Hfeed, phifeed,chifeed,phipfeed,chipfeed)
 stepphi(m) = dNe*dphit(kfeed,Hfeed, phifeed,chifeed,phipfeed,chipfeed)
 stepchi(m) = dNe*dchit(kfeed,Hfeed, phifeed,chifeed,phipfeed,chipfeed)
@@ -642,301 +790,105 @@ Nei = Neim1 + dNe
 Hti = Htim1 + dot_product(sv,stepHt)
 phiti = phitim1 + dot_product(sv,stepphi)
 chiti = chitim1 + dot_product(sv,stepchi)
-phitpi = phitpim1 + dot_product(sv,stepphip)
-chitpi = chitpim1 + dot_product(sv,stepchip)
-
-!print*,phiti,chiti
-
-
-k0101 = dHt(Neim1,Htim1,phitim1,chitim1,phitpim1,chitpim1)
-
-k0201 = dphit(Neim1,Htim1,phitim1,chitim1,phitpim1,chitpim1)
-
-k0301 = dchit(Neim1,Htim1,phitim1,chitim1,phitpim1,chitpim1)
-
-k0401 = dphitp(Neim1,Htim1,phitim1,chitim1,phitpim1,chitpim1)
-
-k0501 = dchitp(Neim1,Htim1,phitim1,chitim1,phitpim1,chitpim1)
-
-Netemp = Neim1 + (4.0q0/27.0q0)*dNe
-
-Httemp = Htim1 + (4.0q0/27.0q0)*dNe*k0101
-!print*, stepHt(1),dNe*k0101
-
-phittemp = phitim1 + (4.0q0/27.0q0)*dNe*k0201
-
-chittemp = chitim1 + (4.0q0/27.0q0)*dNe*k0301
-
-phitptemp = phitpim1 + (4.0q0/27.0q0)*dNe*k0401
-
-chitptemp = chitpim1 + (4.0q0/27.0q0)*dNe*k0501
-
-k0102 = dHt(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0202 = dphit(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0302 = dchit(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0402 = dphitp(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0502 = dchitp(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-Netemp = Neim1 + (2.0q0/9.0q0)*dNe
-
-Httemp = Htim1 + (1.0q0/18.0q0)*dNe*(k0101 + 3.0q0*k0102)
-
-phittemp = phitim1 + (1.0q0/18.0q0)*dNe*(k0201 + 3.0q0*k0202)
-
-chittemp = chitim1 + (1.0q0/18.0q0)*dNe*(k0301 + 3.0q0*k0302)
-
-phitptemp = phitpim1 + (1.0q0/18.0q0)*dNe*(k0401 + 3.0q0*k0402)
-
-chitptemp = chitpim1 + (1.0q0/18.0q0)*dNe*(k0501 + 3.0q0*k0502)
-
-k0103 = dHt(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0203 = dphit(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0303 = dchit(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0403 = dphitp(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0503 = dchitp(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-Netemp = Neim1 + (1.0q0/3.0q0)*dNe
-
-Httemp = Htim1 + (1.0q0/12.0q0)*dNe*(k0101 + 3.0q0*k0103)
-
-phittemp = phitim1 + (1.0q0/12.0q0)*dNe*(k0201 + 3.0q0*k0203)
-
-chittemp = chitim1 + (1.0q0/12.0q0)*dNe*(k0301 + 3.0q0*k0303)
-
-phitptemp = phitpim1 + (1.0q0/12.0q0)*dNe*(k0401 + 3.0q0*k0403)
-
-chitptemp = chitpim1 + (1.0q0/12.0q0)*dNe*(k0501 + 3.0q0*k0503)
-
-k0104 = dHt(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0204 = dphit(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0304 = dchit(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0404 = dphitp(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0504 = dchitp(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-Netemp = Neim1 + (1.0q0/2.0q0)*dNe
-
-Httemp = Htim1 + (1.0q0/8.0q0)*dNe*(k0101 + 3.0q0*k0104)
-
-phittemp = phitim1 + (1.0q0/8.0q0)*dNe*(k0201 + 3.0q0*k0204)
-
-chittemp = chitim1 + (1.0q0/8.0q0)*dNe*(k0301 + 3.0q0*k0304)
-
-phitptemp = phitpim1 + (1.0q0/8.0q0)*dNe*(k0401 + 3.0q0*k0404)
-
-chitptemp = chitpim1 + (1.0q0/8.0q0)*dNe*(k0501 + 3.0q0*k0504)
-
-k0105 = dHt(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0205 = dphit(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0305 = dchit(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0405 = dphitp(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0505 = dchitp(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-Netemp = Neim1 + (2.0q0/3.0q0)*dNe
-
-Httemp = Htim1 + (1.0q0/54.0q0)*dNe*(13.0q0*k0101 - 27.0q0*k0103 + 42.0q0*k0104 + 8.0q0*k0105)
-
-phittemp = phitim1 + (1.0q0/54.0q0)*dNe*(13.0q0*k0201 - 27.0q0*k0203 + 42.0q0*k0204 + 8.0q0*k0205)
-
-chittemp = chitim1 + (1.0q0/54.0q0)*dNe*(13.0q0*k0301 - 27.0q0*k0303 + 42.0q0*k0304 + 8.0q0*k0305)
-
-phitptemp = phitpim1 + (1.0q0/54.0q0)*dNe*(13.0q0*k0401 - 27.0q0*k0403 + 42.0q0*k0404 + 8.0q0*k0405)
-
-chitptemp = chitpim1 + (1.0q0/54.0q0)*dNe*(13.0q0*k0501 - 27.0q0*k0503 + 42.0q0*k0504 + 8.0q0*k0505)
-
-k0106 = dHt(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0206 = dphit(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0306 = dchit(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0406 = dphitp(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0506 = dchitp(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-Netemp = Neim1 + (1.0q0/6.0q0)*dNe
-
-Httemp = Htim1 + (1.0q0/4320.0q0)*dNe*(389.0q0*k0101 - 54.0q0*k0103 + 966.0q0*k0104 - 824.0q0*k0105 + 243.0q0*k0106)
-
-phittemp = phitim1 + (1.0q0/4320.0q0)*dNe*(389.0q0*k0201 - 54.0q0*k0203 + 966.0q0*k0204 - 824.0q0*k0205 + 243.0q0*k0206)
-
-chittemp = chitim1 + (1.0q0/4320.0q0)*dNe*(389.0q0*k0301 - 54.0q0*k0303 + 966.0q0*k0304 - 824.0q0*k0305 + 243.0q0*k0306)
-
-phitptemp = phitpim1 + (1.0q0/4320.0q0)*dNe*(389.0q0*k0401 - 54.0q0*k0403 + 966.0q0*k0404 - 824.0q0*k0405 + 243.0q0*k0406)
-
-chitptemp = chitpim1 + (1.0q0/4320.0q0)*dNe*(389.0q0*k0501 - 54.0q0*k0503 + 966.0q0*k0504 - 824.0q0*k0505 + 243.0q0*k0506)
-
-k0107 = dHt(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0207 = dphit(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0307 = dchit(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0407 = dphitp(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0507 = dchitp(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-Netemp = Neim1 + dNe
-
-Httemp = Htim1 + (1.0q0/20.0q0)*dNe*(-231.0q0*k0101 + 81.0q0*k0103 - 1164.0q0*k0104 + 656.0q0*k0105 - 122.0q0*k0106 + 800.0q0*k0107)
-
-phittemp = phitim1 + (1.0q0/20.0q0)*dNe*(-231.0q0*k0201 + 81.0q0*k0203 - 1164.0q0*k0204 + 656.0q0*k0205 - 122.0q0*k0206 + 800.0q0*k0207)
-
-chittemp = chitim1 + (1.0q0/20.0q0)*dNe*(-231.0q0*k0301 + 81.0q0*k0303 - 1164.0q0*k0304 + 656.0q0*k0305 - 122.0q0*k0306 + 800.0q0*k0307)
-
-phitptemp = phitpim1 + (1.0q0/20.0q0)*dNe*(-231.0q0*k0401 + 81.0q0*k0403 - 1164.0q0*k0404 + 656.0q0*k0405 - 122.0q0*k0406 + 800.0q0*k0407)
-
-chitptemp = chitpim1 + (1.0q0/20.0q0)*dNe*(-231.0q0*k0501 + 81.0q0*k0503 - 1164.0q0*k0504 + 656.0q0*k0505 - 122.0q0*k0506 + 800.0q0*k0507)
-
-k0108 = dHt(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0208 = dphit(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0308 = dchit(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0408 = dphitp(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0508 = dchitp(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-Netemp = Neim1 + (5.0q0/6.0q0)*dNe
-
-Httemp = Htim1 + (1.0q0/288.0q0)*dNe*(-127.0q0*k0101 + 18.0q0*k0103 - 678.0q0*k0104 + 456.0q0*k0105 - 9.0q0*k0106 + 576.0q0*k0107 + 4.0q0*k0108)
-
-phittemp = phitim1 + (1.0q0/288.0q0)*dNe*(-127.0q0*k0201 + 18.0q0*k0203 - 678.0q0*k0204 + 456.0q0*k0205 - 9.0q0*k0206 + 576.0q0*k0207 + 4.0q0*k0208)
-
-chittemp = chitim1 + (1.0q0/288.0q0)*dNe*(-127.0q0*k0301 + 18.0q0*k0303 - 678.0q0*k0304 + 456.0q0*k0305 - 9.0q0*k0306 + 576.0q0*k0307 + 4.0q0*k0308)
-
-phitptemp = phitpim1 + (1.0q0/288.0q0)*dNe*(-127.0q0*k0401 + 18.0q0*k0403 - 678.0q0*k0404 + 456.0q0*k0405 - 9.0q0*k0406 + 576.0q0*k0407 + 4.0q0*k0408)
-
-chitptemp = chitpim1 + (1.0q0/288.0q0)*dNe*(-127.0q0*k0501 + 18.0q0*k0503 - 678.0q0*k0504 + 456.0q0*k0505 - 9.0q0*k0506 + 576.0q0*k0507 + 4.0q0*k0508)
-
-k0109 = dHt(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0209 = dphit(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0309 = dchit(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0409 = dphitp(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0509 = dchitp(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-Netemp = Neim1 + dNe
-
-Httemp = Htim1 + (1.0q0/820.0q0)*dNe*(1481.0q0*k0101 - 81.0q0*k0103 + 7104.0q0*k0104 - 3376.0q0*k0105 + 72.0q0*k0106 - 5040.0q0*k0107 - 60.0q0*k0108 + 720.0q0*k0109)
-
-phittemp = phitim1 + (1.0q0/820.0q0)*dNe*(1481.0q0*k0201 - 81.0q0*k0203 + 7104.0q0*k0204 - 3376.0q0*k0205 + 72.0q0*k0206 - 5040.0q0*k0207 - 60.0q0*k0208 + 720.0q0*k0209)
-
-chittemp = chitim1 + (1.0q0/820.0q0)*dNe*(1481.0q0*k0301 - 81.0q0*k0303 + 7104.0q0*k0304 - 3376.0q0*k0305 + 72.0q0*k0306 - 5040.0q0*k0307 - 60.0q0*k0308 + 720.0q0*k0309)
-
-phitptemp = phitpim1 + (1.0q0/820.0q0)*dNe*(1481.0q0*k0401 - 81.0q0*k0403 + 7104.0q0*k0404 - 3376.0q0*k0405 + 72.0q0*k0406 - 5040.0q0*k0407 - 60.0q0*k0408 + 720.0q0*k0409)
-
-chitptemp = chitpim1 + (1.0q0/820.0q0)*dNe*(1481.0q0*k0501 - 81.0q0*k0503 + 7104.0q0*k0504 - 3376.0q0*k0505 + 72.0q0*k0506 - 5040.0q0*k0507 - 60.0q0*k0508 + 720.0q0*k0509)
-
-k0110 = dHt(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0210 = dphit(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0310 = dchit(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0410 = dphitp(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0510 = dchitp(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-Nei = Neim1 + dNe
-
-Hti = Htim1 + (1.0q0/840.0q0)*dNe*(41.0q0*k0101 + 27.0q0*k0104 + 272.0q0*k0105 + 27.0q0*k0106 + 216.0q0*k0107 + 216.0q0*k0109 + 41.0q0*k0110)
-
-phiti = phitim1 + (1.0q0/840.0q0)*dNe*(41.0q0*k0201 + 27.0q0*k0204 + 272.0q0*k0205 + 27.0q0*k0206 + 216.0q0*k0207 + 216.0q0*k0209 + 41.0q0*k0210)
-
-chiti = chitim1 + (1.0q0/840.0q0)*dNe*(41.0q0*k0301 + 27.0q0*k0304 + 272.0q0*k0305 + 27.0q0*k0306 + 216.0q0*k0307 + 216.0q0*k0309 + 41.0q0*k0310)
-
-phitpi = phitpim1 + (1.0q0/840.0q0)*dNe*(41.0q0*k0401 + 27.0q0*k0404 + 272.0q0*k0405 + 27.0q0*k0406 + 216.0q0*k0407 + 216.0q0*k0409 + 41.0q0*k0410)
-
-chitpi = chitpim1 + (1.0q0/840.0q0)*dNe*(41.0q0*k0501 + 27.0q0*k0504 + 272.0q0*k0505 + 27.0q0*k0506 + 216.0q0*k0507 + 216.0q0*k0509 + 41.0q0*k0510)
-!print*,phiti,chiti
-i = i + 1
-arrayNe(i) = Nei
-arrayHt(i) = Hti
-
-! store background
-arrayphit(i) = phiti
-arraychit(i) = chiti
-arrayphitp(i) = phitpi
-arraychitp(i) = chitpi
+phipti = phiptim1 + dot_product(sv,stepphip)
+chipti = chiptim1 + dot_product(sv,stepchip)
+
+
+121 FORMAT (F14.10, 5X, F18.6,5X,F14.12,5X,F14.8)
+
+if (Nei >= Newrite + dNewrite) then
+
+    !write(*,121) Nei,Hti,chiti,phiti
+    !phiti,
+    !,"endl"
+    ! write(11,*) Nei,Hti,phiti,chiti,"endl"
+    i = i + 1
+    arrayNe(i) = Nei
+    arrayHt(i) = Hti
+    Newrite = Nei
+end if
 
 end do
 
 imax = i
 
+! print *,dNe
+
 Ne0 = Nei
 
-! arrayHt(imax) = 1.0q0
+! Ht0 = Hti
+! Ht0 = 1.0q0
+! phit0 = phiti
+! chit0 = chiti
+! phitp0 = phipti
+! chitp0 = chipti
 
-phit0 = phiti
-! phit0 = phitinitial
-chit0 = chiti
-! chit0 = 0.0q0
-phitp0 = phitpi
-! phitp0 = 0.0q0
-chitp0 = chitpi
-! chitp0 = 0.0q0
+! open(unit=11,file='aHta2.dat')
 
-lambdaphitold = lambdaphit
-
-! Use this in CAMB
-lambdaphit = (12.0q0 - 2.0q0*phitp0**2 - lambdachit*chit0**4 - 2.0q0*chitp0**2 - &
-     &    12.0q0*Omegam0 - 12.0q0*Omegar0)/phit0**4
-
-! Use this in CosmoMC
-! lambdaphit = (12.0q0 - 2.0q0*phitp0**2 - 2.0q0*chitp0**2 - &
-!      &    12.0q0*Omegam0 - 12.0q0*Omegar0)/phit0**4
-
-write(*,*) "lambdaphit = ", lambdaphit
-! write(*,*) "deltalambdaphit = ", abs((lambdaphit - lambdaphitold)/lambdaphit)
-
-write(*,*) "deltaNe = ", Ne0 - Ne0approx
-
-end do
-
-! store background
-open(unit=11,file='background.txt')
-
-do i = 1, imax
+do i = 1,imax
+    ! arraya(i) = exp(arrayNe(i) - Ne0)
     ! log(a)
-    arraya(i) = arrayNe(i) - Ne0
+    ! arraya(i) = arrayNe(i) - Ne0
 
-    ! arraya(i) = log(aitoa0approx) - log(aitoa0approx)*(arrayNe(i))/(arrayNe(imax))
+    ! *KR CHANGE*
+    ! Important: rescaling
+   ! arraya(i) = (Ne0approx/Ne0)*arrayNe(i) - Ne0approx
+   !KR 7/22 better rescaling more precise
+    arraya(i) = log(aitoa0approx) - log(aitoa0approx)*(arrayNe(i))/(arrayNe(imax))
 
-    ! store background
-    write(11,"(6e25.16)") exp(arraya(i)), arrayHt(i), arrayphit(i), &
-    & arraychit(i), arrayphitp(i), arraychitp(i)
-
+    ! write(*,*) i,log(arraya(i))
+    ! write(*,*) i,arrayNe(i),arrayHt(i),arraya(i)
+    ! write(11,*) arraya(i),arrayHt(i)*arraya(i)**2,HtLCDM(arraya(i),0.3q0,1.0q-4)
 end do
+!print*,Nei,Ne0approx,Hti
 
-! store background
-close(11)
 
-110 if (log(ainput) <= arraya(1)) then
+
+!output rescale factors DG 12/23
+!KR 7/22/2021 not needed as we disuussed
+rs_rad=exp(4.q0*(Ne0approx-Ne0))
+rs_matter=exp(3.q0*(Ne0approx-Ne0))
+!print*,CP%omegab*((CP%H0/100.0)**2.0d0),CP%omegac*((CP%H0/100.0)**2.0d0)
+CP%omegab=CP%omegab*rs_matter
+CP%omegac=CP%omegac*rs_matter
+CP%omegan=CP%omegan*rs_matter
+CP%omegav = 1.d0-  CP%omegab-CP%omegac - CP%omegan
+!print*,CP%omegab*((CP%H0/100.0)**2.0d0),CP%omegac*((CP%H0/100.0)**2.0d0)
+!print*,grhog,grhor,grhornomass,H0inMpcinsec
+
+  grhornomass=Omegar0*rs_rad*(3.0d0*H0inMpcinsec**2)-grhog
+   ! nu_massless_degeneracy= CP%Num_Nu_massless
+
+!    print*,grhornomass/grhor
+ 
+    !Compute updated number of non-photon free-streaming rel degrees of freedom
+    !needed to get H=H0 not at a=af*2, the stopping point determined by scalar field code
+    
+    CP%Num_Nu_massless=grhornomass/grhor
+    write(*,*) CP%Num_Nu_massless,CP%Num_Nu_massive
+
+! Nea = Ne0 + log(a)
+
+594 if (log(ainput) <= arraya(1)) then
+
+! Hta2 =  E**((log(arraya(2))*log(arrayHt(1)) - &
+!      &      log(ainput)*(2.0q0*log(arraya(1)) - 2.0q0*log(arraya(2)) + log(arrayHt(1)) - &
+!      &         log(arrayHt(2))) - log(arraya(1))*log(arrayHt(2)))/ &
+!      &    (log(arraya(2)) - log(arraya(1))))
 
 ! Radiation dominated
 Hta2 = arrayHt(1)*exp(arraya(1))**2
 
 else if ((log(ainput) > arraya(1)) .and. (log(ainput) <= arraya(imax))) then
+
+! {
+! This is very slow.
+! i = 1
+! do while (arraya(i) < log10(ainput))
+!     i = i + 1
+! end do
+! i = i - 1
+! }
 
 ! {
 ! bisection method
@@ -953,12 +905,29 @@ enddo
 i = leftpoint
 ! }
 
+! {
+! secant method
+! asecant = real(1,16)
+! bsecant= real(imax,16)
+! dxsecant = abs(bsecant - asecant)
+! do while (int(dxsecant) > 1)
+! xsecant = asecant - ((arraya(int(asecant)) - log(ainput))*(bsecant - asecant))/(arraya(int(bsecant)) - arraya(int(asecant)))
+! if ((arraya(int(asecant)) - log(ainput))*(arraya(int(xsecant)) - log(ainput)) < 0.0q0) then
+!     bsecant = xsecant
+! else
+!     asecant = xsecant
+! end if
+! dxsecant = abs(bsecant - asecant)
+! end do
+! i = min(int(asecant),int(bsecant))
+!}
+
 Hta2 = (arrayHt(i) + ((arrayHt(i+1) - arrayHt(i))/(arraya(i+1) - arraya(i)))*(log(ainput) &
         & - arraya(i)))*ainput**2
 
 else if (log(ainput) > arraya(imax)) then
 
-Hta2 =  exp(((arraya(imax))*log(arrayHt(imax-1)) - &
+Hta2 =  E**(((arraya(imax))*log(arrayHt(imax-1)) - &
      &      log(ainput)*(2.0q0*(arraya(imax-1)) - 2.0q0*(arraya(imax)) + &
      & log(arrayHt(imax-1)) - log(arrayHt(imax))) - &
      & (arraya(imax-1))*log(arrayHt(imax)))/ &
@@ -977,20 +946,19 @@ function dHt(Ne,Ht,phit,chit,phitp,chitp)
     real(16) :: Ne,Ht,phit,chit,phitp,chitp
     real(16) :: dHt
 
-    real(16) :: Omegam0,Omegar0,lambdachit,phitinitial,chitinitial
-    common /inputparametersofHta2/ Omegam0,Omegar0,lambdachit, &
-            & phitinitial,chitinitial
+    real(16) :: E
+    common /constants/ E
+!DG  5/23 add constants telling us how to rescale relativistic and non-relativistic comps
+! and adjust e foldings
+    real(16) :: rhomtinitial,rhortinitial,lambdaphit,lambdachit,phitinitial,chitinitial
+    real(16) :: rs_matter,rs_rad,ai_new
+    common /inputparametersofHta/ rhomtinitial,rhortinitial,lambdaphit,lambdachit, &
+            & phitinitial,chitinitial,rs_matter,rs_rad,ai_new
 
-    real(16) :: lambdaphit
-    common /lambdaphit/ lambdaphit
-
-    real(16) :: rhomtinitial, rhortinitial
-    common /rhotinitial/ rhomtinitial, rhortinitial
-
-    dHt = (-3.0q0*exp(Ne)*rhomtinitial - 4.0q0*rhortinitial - &
-             &    3.0q0*exp(4.0q0*Ne)*Ht**2.0q0* &
+    dHt = (-3.0q0*E**Ne*rhomtinitial - 4.0q0*rhortinitial - &
+             &    3.0q0*E**(4.0q0*Ne)*Ht**2.0q0* &
              &     (phitp**2.0q0 + chitp**2.0q0))/ &
-             &  (6.0q0*exp(4.0q0*Ne)*Ht)
+             &  (6.0q0*E**(4.0q0*Ne)*Ht)
 
 end function dHt
 
@@ -1029,21 +997,21 @@ function dphitp(Ne,Ht,phit,chit,phitp,chitp)
     real(16) :: Ne,Ht,phit,chit,phitp,chitp
     real(16) :: dphitp
 
-    real(16) :: Omegam0,Omegar0,lambdachit,phitinitial,chitinitial
-    common /inputparametersofHta2/ Omegam0,Omegar0,lambdachit, &
-            & phitinitial,chitinitial
+    real(16) :: E
+    common /constants/ E
 
-    real(16) :: lambdaphit
-    common /lambdaphit/ lambdaphit
 
-    real(16) :: rhomtinitial, rhortinitial
-    common /rhotinitial/ rhomtinitial, rhortinitial
+    !DG 12/23 new common block with rescale params
+    real(16) :: rhomtinitial,rhortinitial,lambdaphit,lambdachit,phitinitial,chitinitial
+    real(16) :: rs_matter,rs_rad,ai_new
+    common /inputparametersofHta/ rhomtinitial,rhortinitial,lambdaphit,lambdachit, &
+            & phitinitial,chitinitial,rs_matter,rs_rad,ai_new
 
     dphitp = (-6.0q0*lambdaphit*phit**3.0q0 + &
-             &    (phitp*(3.0q0*exp(Ne)*rhomtinitial + 4*rhortinitial + &
-             &         3.0q0*exp(4.0q0*Ne)*Ht**2.0q0* &
+             &    (phitp*(3.0q0*E**Ne*rhomtinitial + 4*rhortinitial + &
+             &         3.0q0*E**(4.0q0*Ne)*Ht**2.0q0* &
              &          (-6.0q0 + phitp**2.0q0 + chitp**2.0q0)))/ &
-             &     exp(4.0q0*Ne))/(6.0q0*Ht**2.0q0)
+             &     E**(4.0q0*Ne))/(6.0q0*Ht**2.0q0)
 
 end function dphitp
 
@@ -1056,21 +1024,21 @@ function dchitp(Ne,Ht,phit,chit,phitp,chitp)
     real(16) :: Ne,Ht,phit,chit,phitp,chitp
     real(16) :: dchitp
 
-    real(16) :: Omegam0,Omegar0,lambdachit,phitinitial,chitinitial
-    common /inputparametersofHta2/ Omegam0,Omegar0,lambdachit, &
-            & phitinitial,chitinitial
+    real(16) :: E
+    common /constants/ E
 
-    real(16) :: lambdaphit
-    common /lambdaphit/ lambdaphit
 
-    real(16) :: rhomtinitial, rhortinitial
-    common /rhotinitial/ rhomtinitial, rhortinitial
+    real(16) :: rhomtinitial,rhortinitial,lambdaphit,lambdachit,phitinitial,chitinitial
+    real(16) :: rs_matter,rs_rad,ai_new
+    common /inputparametersofHta/ rhomtinitial,rhortinitial,lambdaphit,lambdachit, &
+            & phitinitial,chitinitial,rs_matter,rs_rad,ai_new
+
 
     dchitp = (-6.0q0*lambdachit*chit**3.0q0 + &
-             &    (chitp*(3.0q0*exp(Ne)*rhomtinitial + 4.0q0*rhortinitial + &
-             &         3.0q0*exp(4.0q0*Ne)*Ht**2.0q0* &
+             &    (chitp*(3.0q0*E**Ne*rhomtinitial + 4.0q0*rhortinitial + &
+             &         3.0q0*E**(4.0q0*Ne)*Ht**2.0q0* &
              &          (-6.0q0 + phitp**2.0q0 + chitp**2.0q0)))/ &
-             &     exp(4.0q0*Ne))/(6.0q0*Ht**2.0q0)
+             &     E**(4.0q0*Ne))/(6.0q0*Ht**2.0q0)
 
 end function dchitp
 

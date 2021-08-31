@@ -1,5 +1,3 @@
-! equations_ppf-store_background-final.f90
-
     ! Equations module for dark energy with constant equation of state parameter w
     ! allowing for perturbations based on a quintessence model
     ! by Antony Lewis (http://cosmologist.info/)
@@ -16,185 +14,38 @@
     ! June 2011, improved radiation approximations from arXiv: 1104.2933; Some 2nd order tight coupling terms
     !            merged fderivs and derivs so flat and non-flat use same equations; more precomputed arrays
     !            optimized neutrino sampling, and reorganised neutrino integration functions
-    ! Feb 2012, updated PPF version but now only simple case for w, w_a (no anisotropic stresses etc)
     ! Feb 2013: fixed various issues with accuracy at larger neutrino masses
-    ! Oct 2013: fix PPF, consistent with updated equations_cross
     ! Mar 2014: fixes for tensors with massive neutrinos
 
     module LambdaGeneral
     use precision
-    use  ModelParams
     implicit none
 
     real(dl)  :: w_lam = -1_dl !p/rho for the dark energy (assumed constant)
-    ! w_lam is now w0
+    real(dl) :: cs2_lam = 1_dl
     !comoving sound speed. Always exactly 1 for quintessence
     !(otherwise assumed constant, though this is almost certainly unrealistic)
-    real(dl) :: cs2_lam = 1_dl
-    !cs2_lam now is ce^2
 
-    logical :: use_tabulated_w = .false.
-    real(dl) :: wa_ppf = 0._dl
-    real(dl) :: c_Gamma_ppf = 0.4_dl
-    integer, parameter :: nwmax = 5000, nde = 2000
-    integer :: nw_ppf
-    real(dl) w_ppf(nwmax), a_ppf(nwmax), ddw_ppf(nwmax)
-    real(dl) rde(nde),ade(nde),ddrde(nde)
-    real(dl), parameter :: amin = 1.d-9
-    logical :: is_cosmological_constant
-    private nde,ddw_ppf,rde,ade,ddrde,amin
+    real(dl), parameter :: wa_ppf = 0._dl !Not used here, just for compatibility with e.g. halofit
+
+    logical :: w_perturb = .true.
+    !If you are tempted to set this = .false. read
+    ! http://cosmocoffee.info/viewtopic.php?t=811
+    ! http://cosmocoffee.info/viewtopic.php?t=512
 
     contains
 
     subroutine DarkEnergy_ReadParams(Ini)
     use IniFile
     Type(TIniFile) :: Ini
-    character(LEN=Ini_max_string_len) wafile
-    integer i
 
-    if (Ini_HasKey_File(Ini,'usew0wa')) then
-        stop 'input variables changed from usew0wa: now use_tabulated_w or w, wa'
-    end if
-
-    use_tabulated_w = Ini_Read_Logical_File(Ini,'use_tabulated_w',.false.)
-    if(.not. use_tabulated_w)then
-        w_lam = Ini_Read_Double_File(Ini,'w', -1.d0)
-        wa_ppf = Ini_Read_Double_File(Ini,'wa', 0.d0)
-        if (Feedback > 0) write(*,'("(w0, wa) = (", f8.5,", ", f8.5, ")")') w_lam,wa_ppf
-    else
-        wafile = Ini_Read_String_File(Ini,'wafile')
-        open(unit=10,file=wafile,status='old')
-        nw_ppf=0
-        do i=1,nwmax+1
-            read(10,*,end=100)a_ppf(i),w_ppf(i)
-            a_ppf(i)=dlog(a_ppf(i))
-            nw_ppf=nw_ppf+1
-        enddo
-        write(*,'("Note: ", a, " has more than ", I8, " data points")') trim(wafile), nwmax
-        write(*,*)'Increase nwmax in LambdaGeneral'
-        stop
-100     close(10)
-        write(*,'("read in ", I8, " (a, w) data points from ", a)') nw_ppf, trim(wafile)
-        call setddwa
-        call interpolrde
-    endif
+    w_lam = Ini_Read_Double_File(Ini,'w', -1.d0)
     cs2_lam = Ini_Read_Double_File(Ini,'cs2_lam',1.d0)
-    call setcgammappf
 
     end subroutine DarkEnergy_ReadParams
 
-
-    subroutine setddwa
-    real(dl), parameter :: wlo=1.d30, whi=1.d30
-
-    call spline(a_ppf,w_ppf,nw_ppf,wlo,whi,ddw_ppf) !a_ppf is lna here
-
-    end subroutine setddwa
-
-
-    function w_de(a)
-    real(dl) :: w_de, al
-    real(dl), intent(IN) :: a
-
-    if(.not. use_tabulated_w) then
-        w_de=w_lam+wa_ppf*(1._dl-a)
-    else
-        al=dlog(a)
-        if(al.lt.a_ppf(1)) then
-            w_de=w_ppf(1)                   !if a < minimum a from wa.dat
-        elseif(al.gt.a_ppf(nw_ppf)) then
-            w_de=w_ppf(nw_ppf)              !if a > maximus a from wa.dat
-        else
-            call cubicsplint(a_ppf,w_ppf,ddw_ppf,nw_ppf,al,w_de)
-        endif
-    endif
-    end function w_de  ! equation of state of the PPF DE
-
-
-    function drdlna_de(al)
-    real(dl) :: drdlna_de, a
-    real(dl), intent(IN) :: al
-
-    a=dexp(al)
-    drdlna_de=3._dl*(1._dl+w_de(a))
-
-    end function drdlna_de
-
-
-    subroutine interpolrde
-    real(dl), parameter :: rlo=1.d30, rhi=1.d30
-    real(dl) :: atol, almin, al, rombint, fint
-    integer :: i
-    external rombint
-    atol=1.d-5
-    almin=dlog(amin)
-    do i=1,nde
-        al=almin-almin/(nde-1)*(i-1)    !interpolate between amin and today
-        fint=rombint(drdlna_de, al, 0._dl, atol)+4._dl*al
-        ade(i)=al
-        rde(i)=dexp(fint) !rho_de*a^4 normalize to its value at today
-    enddo
-    call spline(ade,rde,nde,rlo,rhi,ddrde)
-    end subroutine interpolrde
-
-    function grho_de(a)  !8 pi G a^4 rho_de
-    real(dl) :: grho_de, al, fint
-    real(dl), intent(IN) :: a
-
-    if(.not. use_tabulated_w) then
-        grho_de=grhov*a**(1._dl-3.*w_lam-3.*wa_ppf)*exp(-3.*wa_ppf*(1._dl-a))
-    else
-        if(a.eq.0.d0)then
-            grho_de=0.d0      !assume rho_de*a^4-->0, when a-->0, OK if w_de always <0.
-        else
-            al=dlog(a)
-            if(al.lt.ade(1))then
-                fint=rde(1)*(a/amin)**(1.-3.*w_de(amin))    !if a<amin, assume here w=w_de(amin)
-            else              !if amin is small enough, this extrapolation will be unnecessary.
-                call cubicsplint(ade,rde,ddrde,nde,al,fint)
-            endif
-            grho_de=grhov*fint
-        endif
-    endif
-    end function grho_de
-
-    !-------------------------------------------------------------------
-    SUBROUTINE cubicsplint(xa,ya,y2a,n,x,y)
-    INTEGER n
-    real(dl)x,y,xa(n),y2a(n),ya(n)
-    INTEGER k,khi,klo
-    real(dl)a,b,h
-    klo=1
-    khi=n
-1   if (khi-klo.gt.1) then
-        k=(khi+klo)/2
-        if(xa(k).gt.x)then
-            khi=k
-        else
-            klo=k
-        endif
-        goto 1
-    endif
-    h=xa(khi)-xa(klo)
-    if (h.eq.0.) stop 'bad xa input in splint'
-    a=(xa(khi)-x)/h
-    b=(x-xa(klo))/h
-    y=a*ya(klo)+b*ya(khi)+&
-        ((a**3-a)*y2a(klo)+(b**3-b)*y2a(khi))*(h**2)/6.d0
-    END SUBROUTINE cubicsplint
-    !--------------------------------------------------------------------
-
-
-    subroutine setcgammappf
-
-    c_Gamma_ppf=0.4d0*sqrt(cs2_lam)
-
-    end subroutine setcgammappf
-
-
     end module LambdaGeneral
 
-    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 
 
     !Return OmegaK - modify this if you add extra fluid components
@@ -208,873 +59,45 @@
 
 
     subroutine init_background
-    use LambdaGeneral
     !This is only called once per model, and is a good point to do any extra initialization.
     !It is called before first call to dtauda, but after
     !massive neutrinos are initialized and after GetOmegak
-    is_cosmological_constant = .not. use_tabulated_w .and. w_lam==-1_dl .and. wa_ppf==0._dl
     end  subroutine init_background
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-!Background evolution
-function dtauda(a)
-!get d tau / d a
-use precision
-use constants
-use ModelParams
-use MassiveNu
-use LambdaGeneral
-implicit none
-real(dl) dtauda
-real(dl), intent(IN) :: a
-real(dl) rhonu,grhoa2,a2
-integer nu_i
-
-real(dl) :: grhov_t
-
-real(16) :: Omegam0,Omegar0,lambdachit,phitinitial,chitinitial
-
-real(16) :: Hta2LCDM,Hta2
-
-real(dl) :: H0inMpcinsec
-
-real(dl) :: Hta2LCDM1,Hta2LCDM2,Ha2LCDM1,Ha2LCDM2
-
-real(16) :: Hta2LCDMvalue,Hta2value,Ha2
-
-a2=a**2
-
-!  8*pi*G*rho*a**4.
-grhoa2=grhok*a2+(grhoc+grhob)*a+grhog+grhornomass
-if (is_cosmological_constant) then
-    grhoa2=grhoa2+grhov*a2**2
-else
-    grhoa2=grhoa2+ grho_de(a)
-end if
-
-if (CP%Num_Nu_massive /= 0) then
-    !Get massive neutrino density relative to massless
-    do nu_i = 1, CP%nu_mass_eigenstates
-        call Nu_rho(a*nu_masses(nu_i),rhonu)
-        grhoa2=grhoa2+rhonu*grhormass(nu_i)
-    end do
-end if
-
-H0inMpcinsec = (CP%H0)*1.0d3/c
-
-Omegam0 = real((grhoc + grhob)/(3.0d0*H0inMpcinsec**2),16)
-Omegar0 = real((grhog + grhornomass)/(3.0d0*H0inMpcinsec**2),16)
-
-phitinitial = real(myparameter1,16)
-chitinitial = real(myparameter2,16)
-! lambdaphit = real(10.0d0**myparameter3,16)
-lambdachit = real(10.0d0**myparameter4,16)
-
-Ha2LCDM1 = sqrt(grhoa2/3.0d0)
-
-Hta2LCDM1 = Ha2LCDM1/H0inMpcinsec
-
-Hta2LCDMvalue = Hta2LCDM(real(a,16), Omegam0, Omegar0)
-
-Hta2LCDM2 = Hta2LCDMvalue
-
-!! Ha2LCDM2 = H0inMpcinsec*Hta2LCDM2
-
-Hta2value = Hta2(real(a,16), Omegam0, Omegar0, lambdachit, phitinitial, chitinitial)
-
-! Ha2 = Ha2LCDM1
-! Ha2 = H0inMpcinsec*Hta2value
-Ha2 = (Hta2value/Hta2LCDMvalue)*Ha2LCDM1
-
-dtauda = real(1.0q0/Ha2, 8)
-
-end function dtauda
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-function Hta2LCDM(a,Omegam0,Omegar0)
-
+    !Background evolution
+    function dtauda(a)
+    !get d tau / d a
+    use precision
+    use ModelParams
+    use MassiveNu
+    use LambdaGeneral
     implicit none
-
-    real(16) :: a,Omegam0,Omegar0
-    real(16) :: Hta2LCDM
-
-    real(16) :: OmegaLambda0
-
-    OmegaLambda0 = 1.0q0 - (Omegam0 + Omegar0)
-    ! OmegaLambda0 = 1.0q0 - (Omegam0)
-
-    ! HtLCDM = sqrt(Omegam0*a**(-3.0q0) + Omegar0*a**(-4.0q0) + OmegaLambda0)
-
-    Hta2LCDM = sqrt(Omegam0*a + Omegar0 + OmegaLambda0*a**4)
-
-end function Hta2LCDM
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-function Hta2(ainput,Omegam0input,Omegar0input, &
-     & lambdachitinput,phitinitialinput,chitinitialinput)
-
-implicit none
-
-real(16) :: ainput,Omegam0input,Omegar0input, &
-            &   lambdachitinput,phitinitialinput,chitinitialinput
-real(16) :: Hta2
-
-real(16) :: Omegam0,Omegar0,lambdachit,phitinitial,chitinitial
-common /inputparametersofHta2/ Omegam0,Omegar0,lambdachit,phitinitial,chitinitial
-
-real(16) :: lambdaphit
-common /lambdaphit/ lambdaphit
-
-real(16) :: lambdaphitold
-
-real(16) :: rhomtinitial, rhortinitial
-common /rhotinitial/ rhomtinitial, rhortinitial
-
-real(16), dimension(100000) :: arrayNe
-real(16) cmat(1:10,1:10),kv(1:10),sv(1:10)
-real(16) stepHt(10),stepphi(10),stepchi(10), stepphip(10), stepchip(10)
-real(16) phifeed,chifeed,phipfeed,chipfeed,kfeed,Hfeed
-integer m
-! real(16), dimension(100000) :: arraya,arrayHt
-! common /arrays/ arraya,arrayHt
-
-! store background
-real(16), dimension(100000) :: arraya,arrayHt,arrayphit,arraychit,arrayphitp,arraychitp
-common /arrays/ arraya,arrayHt,arrayphit,arraychit,arrayphitp,arraychitp
-
-integer :: imax
-common /arrayindex/ imax
-
-real(16) :: Omegam0flag,Omegar0flag,lambdachitflag,phitinitialflag, &
-            & chitinitialflag
-common /flags/ Omegam0flag,Omegar0flag,lambdachitflag,phitinitialflag, &
-            & chitinitialflag
-
-integer :: i
-
-real(16) :: Neinitial,Htinitial,phitpinitial,chitpinitial
-real(16) :: aitoa0approx,Ne0approx
-real(16) :: Ne0
-
-real(16) :: phit0,chit0,phitp0,chitp0
-
-real(16) :: dNe
-
-real(16) :: Nei,Hti,phiti,chiti,phitpi,chitpi
-real(16) :: Neim1,Htim1,phitim1,chitim1,phitpim1,chitpim1
-real(16) :: dHt,dphit,dchit,dphitp,dchitp
-real(16) :: k0101,k0102,k0103,k0104,k0105,k0106,k0107,k0108,k0109,k0110
-real(16) :: k0201,k0202,k0203,k0204,k0205,k0206,k0207,k0208,k0209,k0210
-real(16) :: k0301,k0302,k0303,k0304,k0305,k0306,k0307,k0308,k0309,k0310
-real(16) :: k0401,k0402,k0403,k0404,k0405,k0406,k0407,k0408,k0409,k0410
-real(16) :: k0501,k0502,k0503,k0504,k0505,k0506,k0507,k0508,k0509,k0510
-real(16) :: Netemp,Httemp,phittemp,chittemp,phitptemp,chitptemp
-
-integer :: leftpoint,rightpoint,midpoint
-
-Omegam0 = Omegam0input
-Omegar0 = Omegar0input
-lambdachit = lambdachitinput
-phitinitial = phitinitialinput
-chitinitial = chitinitialinput
-
-if ((Omegam0 == Omegam0flag) .and. (Omegar0 == Omegar0flag) .and. &
-    & (lambdachit == lambdachitflag) .and. (phitinitial == phitinitialflag) .and. (chitinitial == chitinitialflag)) then
-    goto 110
-end if
-
-Omegam0flag = Omegam0
-Omegar0flag = Omegar0
-lambdachitflag = lambdachit
-phitinitialflag = phitinitial
-chitinitialflag = chitinitial
-
-! write(*,*) "Omegam0 = ", Omegam0
-! write(*,*) "Omegar0 = ", Omegar0
-! write(*,*) "lambdachit = ", lambdachit
-! write(*,*) "phitinitial = ", phitinitial
-! write(*,*) "chitinitial = ", chitinitial
-
-aitoa0approx = 1.0q-5
-Ne0approx = -log(aitoa0approx)
-
-rhomtinitial = 3.0q0*Omegam0*aitoa0approx**(-3.0q0)
-rhortinitial = 3.0q0*Omegar0*aitoa0approx**(-4.0q0)
-
-write(*,*) "Omegam0 = ", Omegam0
-write(*,*) "Omegar0 = ", Omegar0
-
-write(*,*) "rhomtinitial = ", rhomtinitial
-write(*,*) "rhortinitial = ", rhortinitial
-
-phit0 = phitinitial
-chit0 = 0.0q0
-phitp0 = 0.0q0
-chitp0 = 0.0q0
-
-lambdaphitold = 0.0q0
-
-! Use this in CAMB
-lambdaphit = (12.0q0 - 2.0q0*phitp0**2 - lambdachit*chit0**4 - 2.0q0*chitp0**2 - &
-     &    12.0q0*Omegam0 - 12.0q0*Omegar0)/phit0**4
-
-! Use this in CosmoMC
-! lambdaphit = (12.0q0 - 2.0q0*phitp0**2 - 2.0q0*chitp0**2 - &
-!      &    12.0q0*Omegam0 - 12.0q0*Omegar0)/phit0**4
-
-! lambdaphit = 10.0q0**(-4.45)
-
-! write(*,*) "lambdaphit = ", lambdaphit
-! write(*,*) "deltalambdaphit = ", abs((lambdaphit - lambdaphitold)/lambdaphit)
-
-do while (abs((lambdaphit - lambdaphitold)/lambdaphit) >= 1.0q-3)
-
-phitpinitial = (-4.0q0*lambdaphit*phitinitial**3.0q0)/ &
-                 &  ((4.0q0*rhomtinitial)/exp(3.0q0*Neinitial) + (4.0q0*rhortinitial)/ &
-                 & exp(4.0q0*Neinitial) + &
-                 &    lambdaphit*phitinitial**4.0q0 + lambdachit*chitinitial**4.0q0)
-
-chitpinitial = (-4.0q0*lambdachit*chitinitial**3.0q0)/ &
-    &  ((4.0q0*rhomtinitial)/exp(3.0q0*Neinitial) + (4.0q0*rhortinitial)/ &
-    & exp(4.0q0*Neinitial) + &
-    &    lambdaphit*phitinitial**4.0q0 + lambdachit*chitinitial**4.0q0)
-
-Htinitial = ((-(((4.0q0*(exp(Neinitial)*rhomtinitial + &
-    &    rhortinitial))/exp(4.0q0*Neinitial) + &
-    &        lambdaphit*phitinitial**4.0q0 + lambdachit*chitinitial**4.0q0)/ &
-    &      (-6.0q0 + phitpinitial**2.0q0 + chitpinitial**2.0q0)))/(2.0q0))**(0.5q0)
-
-Neinitial = 0.0q0
-dNe = 1.0q-3
-
-i = 1
-
-Nei = Neinitial
-Hti = Htinitial
-phiti = phitinitial
-chiti = chitinitial
-phitpi = phitpinitial
-chitpi = chitpinitial
-
-arrayNe(i) = Nei
-arrayHt(i) = Hti
-
-! store background
-arrayphit(i) = phiti
-arraychit(i) = chiti
-arrayphitp(i) = phitpi
-arraychitp(i) = chitpi
-
-do while (Hti > 1.0q0)
-
-Neim1 = Nei
-Htim1 = Hti
-phitim1 = phiti
-chitim1 = chiti
-phitpim1 = phitpi
-chitpim1 = chitpi
-
-
-stepHt=0.0q0
-stepphi=0.0q0
-stepchi=0.0q0
-stepphip=0.0q0
-stepchip=0.0q0
-
-cmat(1,1)=0.q0
-cmat(2,1)=4.q0/27.q0	
-cmat(1,1)=0.q0
-cmat(1,2)=0.q0
-cmat(2,2)=0.q0
-
-cmat(3,3)=0.q0
-cmat(3,2)=1.q0/6.q0
-cmat(3,1)=1.q0/18.q0
-cmat(1,3)=0.q0
-cmat(2,3)=0.q0
-
-
-cmat(4,4)=0.q0
-cmat(4,3)=1.q0/4.q0
-cmat(4,2)=0.q0
-cmat(4,1)=1.q0/12.q0
-cmat(3,4)=0.q0
-cmat(2,4)=0.q0
-cmat(1,4)=0.q0
-
-cmat(5,5)=0.q0
-cmat(5,4)=3.q0/8.q0
-cmat(5,3)=0.q0
-cmat(5,2)=0.q0
-cmat(5,1)=1.q0/8.q0
-cmat(4,5)=0.q0
-cmat(3,5)=0.q0
-cmat(2,5)=0.q0
-cmat(1,5)=0.q0
-
-cmat(6,6)=0.q0
-cmat(6,5)=4.q0/27.q0
-cmat(6,4)=21.q0/27.q0
-cmat(6,3)=-1.q0/2.q0
-cmat(6,2)=0.q0
-cmat(6,1)=13.q0/54.q0
-cmat(1,6)=0.q0
-cmat(2,6)=0.q0
-cmat(3,6)=0.q0
-cmat(4,6)=0.q0
-cmat(5,6)=0.q0
-
-
-cmat(7,7)=0.q0
-cmat(7,6)=243.q0/4320.q0
-
-cmat(7,5)=-824.q0/4320.q0
-cmat(7,4)=966.q0/4320.q0
-cmat(7,3)=-54.q0/4320.q0
-cmat(7,2)=0.q0
-cmat(7,1)=389.q0/4320.q0
-
-cmat(1,7)=0.q0
-cmat(2,7)=0.q0
-cmat(3,7)=0.q0
-cmat(4,7)=0.q0
-cmat(5,7)=0.q0
-cmat(6,7)=0.q0
-
-
-cmat(8,8)=0.q0
-cmat(8,7)=800.q0/20.q0
-cmat(8,6)=-122.q0/20.q0
-cmat(8,5)=656.q0/20.q0
-cmat(8,4)=-1164.q0/20.q0
-cmat(8,3)=81.q0/20.q0
-cmat(8,2)=0.q0
-cmat(8,1)=-231.q0/20.q0
-cmat(1,8)=0.q0
-cmat(2,8)=0.q0
-cmat(3,8)=0.q0
-cmat(4,8)=0.q0
-cmat(5,8)=0.q0
-cmat(6,8)=0.q0
-cmat(7,8)=0.q0
-
-
-cmat(9,9)=0.q0
-cmat(9,8)=4.q0/288.q0
-cmat(9,7)=576.q0/288.q0
-cmat(9,6)=-9.q0/288.q0
-cmat(9,5)=456.q0/288.q0
-cmat(9,4)=-678.q0/288.q0
-cmat(9,3)=18.q0/288.q0
-cmat(9,2)=0.q0
-cmat(9,1)=-127.q0/288.q0
-cmat(1,9)=0.q0
-cmat(2,9)=0.q0
-cmat(3,9)=0.q0
-cmat(4,9)=0.q0
-cmat(5,9)=0.q0
-cmat(6,9)=0.q0
-cmat(7,9)=0.q0
-cmat(8,9)=0.q0
-cmat(10,10)=0.q0
-cmat(10,9)=720.q0/820.q0
-cmat(10,8)=-60.q0/820.q0
-cmat(10,7)=-5040.q0/820.q0
-cmat(10,6)=72.q0/820.q0
-cmat(10,5)=-3376.q0/820.q0
-cmat(10,4)=7104.q0/820.q0
-cmat(10,3)=-81.q0/820.q0
-cmat(10,2)=0.q0
-cmat(10,1)=1481.q0/820.q0
-cmat(1,10)=0.q0
-cmat(2,10)=0.q0
-cmat(3,10)=0.q0
-cmat(4,10)=0.q0
-cmat(5,10)=0.q0
-cmat(6,10)=0.q0
-cmat(7,10)=0.q0
-cmat(8,10)=0.q0
-cmat(9,10)=0.q0
-
-kv(1)=0.q0
-kv(2)=4.q0*dNe/27.q0
-
-kv(3)=(2.q0/9.q0)*dNe
-kv(4)= (1.q0/3.q0)*dNe
-
-kv(5)= 0.5q0*dNe
-kv(6)=2.q0*dNe/3.q0
-kv(7)=1.q0*dNe/6.q0
-kv(8)=dNe
-
-kv(9)=(5.q0/6.q0)*dNe
-kv(10)=dNe
-
-
-sv(1)=41.q0/840.q0
-sv(2)=0.q0
-sv(3)=0.q0
-sv(4)=27.0q0/840.q0
-sv(5)=272.0q0/840.0q0
-sv(6)=27.q0/840.0q0
-sv(7)=216.0q0/840.0q0
-sv(8)=0.0q0
-sv(9)=216.0q0/840.0q0
-sv(10)=41.0q0/840.0q0
-
-do m=1,10,1
-kfeed=Neim1+kv(m)
-Hfeed=Htim1+dot_product(cmat(m,1:m),stepHt(1:m))
-phifeed=phitim1+dot_product(cmat(m,1:m),stepphi(1:m))
-chifeed=chitim1+dot_product(cmat(m,1:m),stepchi(1:m))
-phipfeed=phitpim1+dot_product(cmat(m,1:m),stepphip(1:m))
-chipfeed=chitpim1+dot_product(cmat(m,1:m),stepchip(1:m))
-stepHt(m) = dNe*dHt(kfeed,Hfeed, phifeed,chifeed,phipfeed,chipfeed)
-stepphi(m) = dNe*dphit(kfeed,Hfeed, phifeed,chifeed,phipfeed,chipfeed)
-stepchi(m) = dNe*dchit(kfeed,Hfeed, phifeed,chifeed,phipfeed,chipfeed)
-stepphip(m) = dNe*dphitp(kfeed,Hfeed, phifeed,chifeed,phipfeed,chipfeed)
-stepchip(m) = dNe*dchitp(kfeed,Hfeed, phifeed,chifeed,phipfeed,chipfeed)
-enddo
-Nei = Neim1 + dNe
-Hti = Htim1 + dot_product(sv,stepHt)
-phiti = phitim1 + dot_product(sv,stepphi)
-chiti = chitim1 + dot_product(sv,stepchi)
-phitpi = phitpim1 + dot_product(sv,stepphip)
-chitpi = chitpim1 + dot_product(sv,stepchip)
-
-!print*,phiti,chiti
-
-
-k0101 = dHt(Neim1,Htim1,phitim1,chitim1,phitpim1,chitpim1)
-
-k0201 = dphit(Neim1,Htim1,phitim1,chitim1,phitpim1,chitpim1)
-
-k0301 = dchit(Neim1,Htim1,phitim1,chitim1,phitpim1,chitpim1)
-
-k0401 = dphitp(Neim1,Htim1,phitim1,chitim1,phitpim1,chitpim1)
-
-k0501 = dchitp(Neim1,Htim1,phitim1,chitim1,phitpim1,chitpim1)
-
-Netemp = Neim1 + (4.0q0/27.0q0)*dNe
-
-Httemp = Htim1 + (4.0q0/27.0q0)*dNe*k0101
-!print*, stepHt(1),dNe*k0101
-
-phittemp = phitim1 + (4.0q0/27.0q0)*dNe*k0201
-
-chittemp = chitim1 + (4.0q0/27.0q0)*dNe*k0301
-
-phitptemp = phitpim1 + (4.0q0/27.0q0)*dNe*k0401
-
-chitptemp = chitpim1 + (4.0q0/27.0q0)*dNe*k0501
-
-k0102 = dHt(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0202 = dphit(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0302 = dchit(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0402 = dphitp(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0502 = dchitp(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-Netemp = Neim1 + (2.0q0/9.0q0)*dNe
-
-Httemp = Htim1 + (1.0q0/18.0q0)*dNe*(k0101 + 3.0q0*k0102)
-
-phittemp = phitim1 + (1.0q0/18.0q0)*dNe*(k0201 + 3.0q0*k0202)
-
-chittemp = chitim1 + (1.0q0/18.0q0)*dNe*(k0301 + 3.0q0*k0302)
-
-phitptemp = phitpim1 + (1.0q0/18.0q0)*dNe*(k0401 + 3.0q0*k0402)
-
-chitptemp = chitpim1 + (1.0q0/18.0q0)*dNe*(k0501 + 3.0q0*k0502)
-
-k0103 = dHt(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0203 = dphit(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0303 = dchit(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0403 = dphitp(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0503 = dchitp(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-Netemp = Neim1 + (1.0q0/3.0q0)*dNe
-
-Httemp = Htim1 + (1.0q0/12.0q0)*dNe*(k0101 + 3.0q0*k0103)
-
-phittemp = phitim1 + (1.0q0/12.0q0)*dNe*(k0201 + 3.0q0*k0203)
-
-chittemp = chitim1 + (1.0q0/12.0q0)*dNe*(k0301 + 3.0q0*k0303)
-
-phitptemp = phitpim1 + (1.0q0/12.0q0)*dNe*(k0401 + 3.0q0*k0403)
-
-chitptemp = chitpim1 + (1.0q0/12.0q0)*dNe*(k0501 + 3.0q0*k0503)
-
-k0104 = dHt(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0204 = dphit(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0304 = dchit(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0404 = dphitp(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0504 = dchitp(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-Netemp = Neim1 + (1.0q0/2.0q0)*dNe
-
-Httemp = Htim1 + (1.0q0/8.0q0)*dNe*(k0101 + 3.0q0*k0104)
-
-phittemp = phitim1 + (1.0q0/8.0q0)*dNe*(k0201 + 3.0q0*k0204)
-
-chittemp = chitim1 + (1.0q0/8.0q0)*dNe*(k0301 + 3.0q0*k0304)
-
-phitptemp = phitpim1 + (1.0q0/8.0q0)*dNe*(k0401 + 3.0q0*k0404)
-
-chitptemp = chitpim1 + (1.0q0/8.0q0)*dNe*(k0501 + 3.0q0*k0504)
-
-k0105 = dHt(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0205 = dphit(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0305 = dchit(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0405 = dphitp(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0505 = dchitp(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-Netemp = Neim1 + (2.0q0/3.0q0)*dNe
-
-Httemp = Htim1 + (1.0q0/54.0q0)*dNe*(13.0q0*k0101 - 27.0q0*k0103 + 42.0q0*k0104 + 8.0q0*k0105)
-
-phittemp = phitim1 + (1.0q0/54.0q0)*dNe*(13.0q0*k0201 - 27.0q0*k0203 + 42.0q0*k0204 + 8.0q0*k0205)
-
-chittemp = chitim1 + (1.0q0/54.0q0)*dNe*(13.0q0*k0301 - 27.0q0*k0303 + 42.0q0*k0304 + 8.0q0*k0305)
-
-phitptemp = phitpim1 + (1.0q0/54.0q0)*dNe*(13.0q0*k0401 - 27.0q0*k0403 + 42.0q0*k0404 + 8.0q0*k0405)
-
-chitptemp = chitpim1 + (1.0q0/54.0q0)*dNe*(13.0q0*k0501 - 27.0q0*k0503 + 42.0q0*k0504 + 8.0q0*k0505)
-
-k0106 = dHt(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0206 = dphit(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0306 = dchit(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0406 = dphitp(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0506 = dchitp(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-Netemp = Neim1 + (1.0q0/6.0q0)*dNe
-
-Httemp = Htim1 + (1.0q0/4320.0q0)*dNe*(389.0q0*k0101 - 54.0q0*k0103 + 966.0q0*k0104 - 824.0q0*k0105 + 243.0q0*k0106)
-
-phittemp = phitim1 + (1.0q0/4320.0q0)*dNe*(389.0q0*k0201 - 54.0q0*k0203 + 966.0q0*k0204 - 824.0q0*k0205 + 243.0q0*k0206)
-
-chittemp = chitim1 + (1.0q0/4320.0q0)*dNe*(389.0q0*k0301 - 54.0q0*k0303 + 966.0q0*k0304 - 824.0q0*k0305 + 243.0q0*k0306)
-
-phitptemp = phitpim1 + (1.0q0/4320.0q0)*dNe*(389.0q0*k0401 - 54.0q0*k0403 + 966.0q0*k0404 - 824.0q0*k0405 + 243.0q0*k0406)
-
-chitptemp = chitpim1 + (1.0q0/4320.0q0)*dNe*(389.0q0*k0501 - 54.0q0*k0503 + 966.0q0*k0504 - 824.0q0*k0505 + 243.0q0*k0506)
-
-k0107 = dHt(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0207 = dphit(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0307 = dchit(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0407 = dphitp(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0507 = dchitp(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-Netemp = Neim1 + dNe
-
-Httemp = Htim1 + (1.0q0/20.0q0)*dNe*(-231.0q0*k0101 + 81.0q0*k0103 - 1164.0q0*k0104 + 656.0q0*k0105 - 122.0q0*k0106 + 800.0q0*k0107)
-
-phittemp = phitim1 + (1.0q0/20.0q0)*dNe*(-231.0q0*k0201 + 81.0q0*k0203 - 1164.0q0*k0204 + 656.0q0*k0205 - 122.0q0*k0206 + 800.0q0*k0207)
-
-chittemp = chitim1 + (1.0q0/20.0q0)*dNe*(-231.0q0*k0301 + 81.0q0*k0303 - 1164.0q0*k0304 + 656.0q0*k0305 - 122.0q0*k0306 + 800.0q0*k0307)
-
-phitptemp = phitpim1 + (1.0q0/20.0q0)*dNe*(-231.0q0*k0401 + 81.0q0*k0403 - 1164.0q0*k0404 + 656.0q0*k0405 - 122.0q0*k0406 + 800.0q0*k0407)
-
-chitptemp = chitpim1 + (1.0q0/20.0q0)*dNe*(-231.0q0*k0501 + 81.0q0*k0503 - 1164.0q0*k0504 + 656.0q0*k0505 - 122.0q0*k0506 + 800.0q0*k0507)
-
-k0108 = dHt(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0208 = dphit(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0308 = dchit(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0408 = dphitp(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0508 = dchitp(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-Netemp = Neim1 + (5.0q0/6.0q0)*dNe
-
-Httemp = Htim1 + (1.0q0/288.0q0)*dNe*(-127.0q0*k0101 + 18.0q0*k0103 - 678.0q0*k0104 + 456.0q0*k0105 - 9.0q0*k0106 + 576.0q0*k0107 + 4.0q0*k0108)
-
-phittemp = phitim1 + (1.0q0/288.0q0)*dNe*(-127.0q0*k0201 + 18.0q0*k0203 - 678.0q0*k0204 + 456.0q0*k0205 - 9.0q0*k0206 + 576.0q0*k0207 + 4.0q0*k0208)
-
-chittemp = chitim1 + (1.0q0/288.0q0)*dNe*(-127.0q0*k0301 + 18.0q0*k0303 - 678.0q0*k0304 + 456.0q0*k0305 - 9.0q0*k0306 + 576.0q0*k0307 + 4.0q0*k0308)
-
-phitptemp = phitpim1 + (1.0q0/288.0q0)*dNe*(-127.0q0*k0401 + 18.0q0*k0403 - 678.0q0*k0404 + 456.0q0*k0405 - 9.0q0*k0406 + 576.0q0*k0407 + 4.0q0*k0408)
-
-chitptemp = chitpim1 + (1.0q0/288.0q0)*dNe*(-127.0q0*k0501 + 18.0q0*k0503 - 678.0q0*k0504 + 456.0q0*k0505 - 9.0q0*k0506 + 576.0q0*k0507 + 4.0q0*k0508)
-
-k0109 = dHt(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0209 = dphit(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0309 = dchit(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0409 = dphitp(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0509 = dchitp(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-Netemp = Neim1 + dNe
-
-Httemp = Htim1 + (1.0q0/820.0q0)*dNe*(1481.0q0*k0101 - 81.0q0*k0103 + 7104.0q0*k0104 - 3376.0q0*k0105 + 72.0q0*k0106 - 5040.0q0*k0107 - 60.0q0*k0108 + 720.0q0*k0109)
-
-phittemp = phitim1 + (1.0q0/820.0q0)*dNe*(1481.0q0*k0201 - 81.0q0*k0203 + 7104.0q0*k0204 - 3376.0q0*k0205 + 72.0q0*k0206 - 5040.0q0*k0207 - 60.0q0*k0208 + 720.0q0*k0209)
-
-chittemp = chitim1 + (1.0q0/820.0q0)*dNe*(1481.0q0*k0301 - 81.0q0*k0303 + 7104.0q0*k0304 - 3376.0q0*k0305 + 72.0q0*k0306 - 5040.0q0*k0307 - 60.0q0*k0308 + 720.0q0*k0309)
-
-phitptemp = phitpim1 + (1.0q0/820.0q0)*dNe*(1481.0q0*k0401 - 81.0q0*k0403 + 7104.0q0*k0404 - 3376.0q0*k0405 + 72.0q0*k0406 - 5040.0q0*k0407 - 60.0q0*k0408 + 720.0q0*k0409)
-
-chitptemp = chitpim1 + (1.0q0/820.0q0)*dNe*(1481.0q0*k0501 - 81.0q0*k0503 + 7104.0q0*k0504 - 3376.0q0*k0505 + 72.0q0*k0506 - 5040.0q0*k0507 - 60.0q0*k0508 + 720.0q0*k0509)
-
-k0110 = dHt(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0210 = dphit(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0310 = dchit(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0410 = dphitp(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-k0510 = dchitp(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
-
-Nei = Neim1 + dNe
-
-Hti = Htim1 + (1.0q0/840.0q0)*dNe*(41.0q0*k0101 + 27.0q0*k0104 + 272.0q0*k0105 + 27.0q0*k0106 + 216.0q0*k0107 + 216.0q0*k0109 + 41.0q0*k0110)
-
-phiti = phitim1 + (1.0q0/840.0q0)*dNe*(41.0q0*k0201 + 27.0q0*k0204 + 272.0q0*k0205 + 27.0q0*k0206 + 216.0q0*k0207 + 216.0q0*k0209 + 41.0q0*k0210)
-
-chiti = chitim1 + (1.0q0/840.0q0)*dNe*(41.0q0*k0301 + 27.0q0*k0304 + 272.0q0*k0305 + 27.0q0*k0306 + 216.0q0*k0307 + 216.0q0*k0309 + 41.0q0*k0310)
-
-phitpi = phitpim1 + (1.0q0/840.0q0)*dNe*(41.0q0*k0401 + 27.0q0*k0404 + 272.0q0*k0405 + 27.0q0*k0406 + 216.0q0*k0407 + 216.0q0*k0409 + 41.0q0*k0410)
-
-chitpi = chitpim1 + (1.0q0/840.0q0)*dNe*(41.0q0*k0501 + 27.0q0*k0504 + 272.0q0*k0505 + 27.0q0*k0506 + 216.0q0*k0507 + 216.0q0*k0509 + 41.0q0*k0510)
-!print*,phiti,chiti
-i = i + 1
-arrayNe(i) = Nei
-arrayHt(i) = Hti
-
-! store background
-arrayphit(i) = phiti
-arraychit(i) = chiti
-arrayphitp(i) = phitpi
-arraychitp(i) = chitpi
-
-end do
-
-imax = i
-
-Ne0 = Nei
-
-! arrayHt(imax) = 1.0q0
-
-phit0 = phiti
-! phit0 = phitinitial
-chit0 = chiti
-! chit0 = 0.0q0
-phitp0 = phitpi
-! phitp0 = 0.0q0
-chitp0 = chitpi
-! chitp0 = 0.0q0
-
-lambdaphitold = lambdaphit
-
-! Use this in CAMB
-lambdaphit = (12.0q0 - 2.0q0*phitp0**2 - lambdachit*chit0**4 - 2.0q0*chitp0**2 - &
-     &    12.0q0*Omegam0 - 12.0q0*Omegar0)/phit0**4
-
-! Use this in CosmoMC
-! lambdaphit = (12.0q0 - 2.0q0*phitp0**2 - 2.0q0*chitp0**2 - &
-!      &    12.0q0*Omegam0 - 12.0q0*Omegar0)/phit0**4
-
-write(*,*) "lambdaphit = ", lambdaphit
-! write(*,*) "deltalambdaphit = ", abs((lambdaphit - lambdaphitold)/lambdaphit)
-
-write(*,*) "deltaNe = ", Ne0 - Ne0approx
-
-end do
-
-! store background
-open(unit=11,file='background.txt')
-
-do i = 1, imax
-    ! log(a)
-    arraya(i) = arrayNe(i) - Ne0
-
-    ! arraya(i) = log(aitoa0approx) - log(aitoa0approx)*(arrayNe(i))/(arrayNe(imax))
-
-    ! store background
-    write(11,"(6e25.16)") exp(arraya(i)), arrayHt(i), arrayphit(i), &
-    & arraychit(i), arrayphitp(i), arraychitp(i)
-
-end do
-
-! store background
-close(11)
-
-110 if (log(ainput) <= arraya(1)) then
-
-! Radiation dominated
-Hta2 = arrayHt(1)*exp(arraya(1))**2
-
-else if ((log(ainput) > arraya(1)) .and. (log(ainput) <= arraya(imax))) then
-
-! {
-! bisection method
-leftpoint = 1
-rightpoint = imax
-do while ((rightpoint - leftpoint) > 1)
-   midpoint = (rightpoint + leftpoint)/2
-   if (arraya(midpoint) > log(ainput)) then
-      rightpoint = midpoint
-   else
-      leftpoint = midpoint
-   endif
-enddo
-i = leftpoint
-! }
-
-Hta2 = (arrayHt(i) + ((arrayHt(i+1) - arrayHt(i))/(arraya(i+1) - arraya(i)))*(log(ainput) &
-        & - arraya(i)))*ainput**2
-
-else if (log(ainput) > arraya(imax)) then
-
-Hta2 =  exp(((arraya(imax))*log(arrayHt(imax-1)) - &
-     &      log(ainput)*(2.0q0*(arraya(imax-1)) - 2.0q0*(arraya(imax)) + &
-     & log(arrayHt(imax-1)) - log(arrayHt(imax))) - &
-     & (arraya(imax-1))*log(arrayHt(imax)))/ &
-     &    ((arraya(imax)) - (arraya(imax-1))))
-
-end if
-
-end function Hta2
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-function dHt(Ne,Ht,phit,chit,phitp,chitp)
-
-    implicit none
-
-    real(16) :: Ne,Ht,phit,chit,phitp,chitp
-    real(16) :: dHt
-
-    real(16) :: Omegam0,Omegar0,lambdachit,phitinitial,chitinitial
-    common /inputparametersofHta2/ Omegam0,Omegar0,lambdachit, &
-            & phitinitial,chitinitial
-
-    real(16) :: lambdaphit
-    common /lambdaphit/ lambdaphit
-
-    real(16) :: rhomtinitial, rhortinitial
-    common /rhotinitial/ rhomtinitial, rhortinitial
-
-    dHt = (-3.0q0*exp(Ne)*rhomtinitial - 4.0q0*rhortinitial - &
-             &    3.0q0*exp(4.0q0*Ne)*Ht**2.0q0* &
-             &     (phitp**2.0q0 + chitp**2.0q0))/ &
-             &  (6.0q0*exp(4.0q0*Ne)*Ht)
-
-end function dHt
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-function dphit(Ne,Ht,phit,chit,phitp,chitp)
-
-    implicit none
-
-    real(16) :: Ne,Ht,phit,chit,phitp,chitp
-    real(16) :: dphit
-
-    dphit = phitp
-
-end function dphit
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-function dchit(Ne,Ht,phit,chit,phitp,chitp)
-
-    implicit none
-
-    real(16) :: Ne,Ht,phit,chit,phitp,chitp
-    real(16) :: dchit
-
-    dchit = chitp
-
-end function dchit
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-function dphitp(Ne,Ht,phit,chit,phitp,chitp)
-
-    implicit none
-
-    real(16) :: Ne,Ht,phit,chit,phitp,chitp
-    real(16) :: dphitp
-
-    real(16) :: Omegam0,Omegar0,lambdachit,phitinitial,chitinitial
-    common /inputparametersofHta2/ Omegam0,Omegar0,lambdachit, &
-            & phitinitial,chitinitial
-
-    real(16) :: lambdaphit
-    common /lambdaphit/ lambdaphit
-
-    real(16) :: rhomtinitial, rhortinitial
-    common /rhotinitial/ rhomtinitial, rhortinitial
-
-    dphitp = (-6.0q0*lambdaphit*phit**3.0q0 + &
-             &    (phitp*(3.0q0*exp(Ne)*rhomtinitial + 4*rhortinitial + &
-             &         3.0q0*exp(4.0q0*Ne)*Ht**2.0q0* &
-             &          (-6.0q0 + phitp**2.0q0 + chitp**2.0q0)))/ &
-             &     exp(4.0q0*Ne))/(6.0q0*Ht**2.0q0)
-
-end function dphitp
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-function dchitp(Ne,Ht,phit,chit,phitp,chitp)
-
-    implicit none
-
-    real(16) :: Ne,Ht,phit,chit,phitp,chitp
-    real(16) :: dchitp
-
-    real(16) :: Omegam0,Omegar0,lambdachit,phitinitial,chitinitial
-    common /inputparametersofHta2/ Omegam0,Omegar0,lambdachit, &
-            & phitinitial,chitinitial
-
-    real(16) :: lambdaphit
-    common /lambdaphit/ lambdaphit
-
-    real(16) :: rhomtinitial, rhortinitial
-    common /rhotinitial/ rhomtinitial, rhortinitial
-
-    dchitp = (-6.0q0*lambdachit*chit**3.0q0 + &
-             &    (chitp*(3.0q0*exp(Ne)*rhomtinitial + 4.0q0*rhortinitial + &
-             &         3.0q0*exp(4.0q0*Ne)*Ht**2.0q0* &
-             &          (-6.0q0 + phitp**2.0q0 + chitp**2.0q0)))/ &
-             &     exp(4.0q0*Ne))/(6.0q0*Ht**2.0q0)
-
-end function dchitp
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    real(dl) dtauda
+    real(dl), intent(IN) :: a
+    real(dl) rhonu,grhoa2, a2
+    integer nu_i
+
+    a2=a**2
+
+    !  8*pi*G*rho*a**4.
+    grhoa2=grhok*a2+(grhoc+grhob)*a+grhog+grhornomass
+    if (w_lam == -1._dl) then
+        grhoa2=grhoa2+grhov*a2**2
+    else
+        grhoa2=grhoa2+grhov*a**(1-3*w_lam)
+    end if
+    if (CP%Num_Nu_massive /= 0) then
+        !Get massive neutrino density relative to massless
+        do nu_i = 1, CP%nu_mass_eigenstates
+            call Nu_rho(a*nu_masses(nu_i),rhonu)
+            grhoa2=grhoa2+rhonu*grhormass(nu_i)
+        end do
+    end if
+
+    dtauda=sqrt(3/grhoa2)
+
+    end function dtauda
 
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 
@@ -1091,7 +114,7 @@ end function dchitp
     public
 
     !Description of this file. Change if you make modifications.
-    character(LEN=*), parameter :: Eqns_name = 'equations_ppf-Jan15'
+    character(LEN=*), parameter :: Eqns_name = 'gauge_inv'
 
     integer, parameter :: basic_num_eqns = 5
 
@@ -1108,7 +131,7 @@ end function dchitp
     real(dl) :: vec_sig0 = 1._dl
     !Vector mode shear
     integer, parameter :: max_l_evolve = 256 !Maximum l we are ever likely to propagate
-    !Note higher values increase size of Evolution vars, hence memory
+    !Note higher values increase size of Evolution vars, hence memoryWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
 
     !Supported scalar initial condition flags
     integer, parameter :: initial_adiabatic=1, initial_iso_CDM=2, &
@@ -1167,11 +190,8 @@ end function dchitp
         !Tensor vars
         real(dl) aux_buf
 
-        real(dl) pig, pigdot !For tight coupling
+        real(dl) pig, pigdot
         real(dl) poltruncfac
-
-        !PPF parameters
-        real(dl) dgrho_e_ppf, dgq_e_ppf
 
         logical no_nu_multpoles, no_phot_multpoles
         integer lmaxnu_tau(max_nu)  !lmax for massive neutinos at time being integrated
@@ -1180,11 +200,40 @@ end function dchitp
         real(dl) denlk(max_l_evolve),denlk2(max_l_evolve), polfack(max_l_evolve)
         real(dl) Kf(max_l_evolve)
 
-        integer E_ix, B_ix !tensor polarization indices
+        integer E_ix, B_ix !tensor polarizatisdon indices
         real(dl) denlkt(4,max_l_evolve),Kft(max_l_evolve)
         real, pointer :: OutputTransfer(:) => null()
+        real(dl), pointer :: OutputSources(:) => null()
+        real(dl), pointer :: CustomSources(:) => null()
 
     end type EvolutionVars
+
+    ABSTRACT INTERFACE
+    SUBROUTINE TSource_func(sources, tau, a, adotoa, grho, gpres,w_lam, cs2_lam,  &
+        grhob_t,grhor_t,grhoc_t,grhog_t,grhov_t,grhonu_t, &
+        k,etak, etakdot, phi, phidot, sigma, sigmadot, &
+        dgrho, clxg,clxb,clxc,clxr, clxnu, clxde, delta_p_b, &
+        dgq, qg, qr, qde, vb, qgdot, qrdot, vbdot, &
+        dgpi, pig, pir, pigdot, pirdot, diff_rhopi, &
+        polter, polterdot, polterddot, octg, octgdot, E, Edot, &
+        opacity, dopacity, ddopacity, visibility, dvisibility, ddvisibility, exptau, &
+        tau0, tau_maxvis, Kf, f_K)
+    real*8, intent(out) :: sources(:)
+    real*8, intent(in) :: tau, a, adotoa, grho, gpres,w_lam, cs2_lam,  &
+        grhob_t,grhor_t,grhoc_t,grhog_t,grhov_t,grhonu_t, &
+        k,etak, etakdot, phi, phidot, sigma, sigmadot, &
+        dgrho, clxg,clxb,clxc, clxr, clxnu, clxde, delta_p_b, &
+        dgq, qg, qr, qde, vb, qgdot, qrdot, vbdot, &
+        dgpi, pig, pir, pigdot, pirdot, diff_rhopi, &
+        polter, polterdot, polterddot, octg, octgdot, E(2:3), Edot(2:3), &
+        opacity, dopacity, ddopacity, visibility, dvisibility, ddvisibility, exptau, &
+        tau0, tau_maxvis
+    REAL*8, intent(in) :: Kf(*)
+    real*8, external :: f_K
+    END SUBROUTINE TSource_func
+    END INTERFACE
+
+    procedure(TSource_func), pointer :: custom_sources_func => null()
 
     !precalculated arrays
     real(dl) polfac(max_l_evolve),denl(max_l_evolve),vecfac(max_l_evolve),vecfacpol(max_l_evolve)
@@ -1321,7 +370,7 @@ end function dchitp
         else if (next_switch==tau_switch_ktau) then
             !k tau >> 1, evolve massless neutrino effective fluid up to l=2
             EVout%high_ktau_neutrino_approx=.true.
-            EV%nq(1:CP%Nu_mass_eigenstates) = nqmax
+            EVout%nq(1:CP%Nu_mass_eigenstates) = nqmax
             call SetupScalarArrayIndices(EVout)
             call CopyScalarVariableArray(y,yout, EV, EVout)
             y=yout
@@ -1504,10 +553,10 @@ end function dchitp
     maxeq = maxeq +  (EV%lmaxg+1)+(EV%lmaxnr+1)+EV%lmaxgpol-1
 
     !Dark energy
-    if (.not. is_cosmological_constant) then
+    if (w_lam /= -1 .and. w_Perturb) then
         EV%w_ix = neq+1
-        neq=neq+1 !ppf
-        maxeq=maxeq+1
+        neq=neq+2
+        maxeq=maxeq+2
     else
         EV%w_ix=0
     end if
@@ -1565,8 +614,9 @@ end function dchitp
 
     yout=0
     yout(1:basic_num_eqns) = y(1:basic_num_eqns)
-    if (.not. is_cosmological_constant) then
+    if (w_lam /= -1 .and. w_Perturb) then
         yout(EVout%w_ix)=y(EV%w_ix)
+        yout(EVout%w_ix+1)=y(EV%w_ix+1)
     end if
 
     if (.not. EV%no_phot_multpoles .and. .not. EVout%no_phot_multpoles) then
@@ -1799,7 +849,7 @@ end function dchitp
 
         EV%poltruncfac=real(EV%lmaxgpol,dl)/max(1,(EV%lmaxgpol-2))
         EV%MaxlNeeded=max(EV%lmaxg,EV%lmaxnr,EV%lmaxgpol,EV%lmaxnu)
-        if (EV%MaxlNeeded > max_l_evolve) stop 'Need to increase max_l_evolve'
+        if (EV%MaxlNeeded > max_l_evolve) call MpiStop('Need to increase max_l_evolve')
         call SetupScalarArrayIndices(EV,EV%nvar)
         if (CP%closed) EV%nvar=EV%nvar+1 !so can reference lmax+1 with zero coefficient
         EV%lmaxt=0
@@ -1826,7 +876,7 @@ end function dchitp
             EV%lmaxnut=min(EV%FirstZerolForBeta-1,EV%lmaxnut)
         end if
         EV%MaxlNeededt=max(EV%lmaxpolt,EV%lmaxt, EV%lmaxnrt, EV%lmaxnut)
-        if (EV%MaxlNeededt > max_l_evolve) stop 'Need to increase max_l_evolve'
+        if (EV%MaxlNeededt > max_l_evolve) call MpiStop('Need to increase max_l_evolve')
         call SetupTensorArrayIndices(EV, EV%nvart)
     else
         EV%nvart=0
@@ -1843,7 +893,7 @@ end function dchitp
 
         EV%nvarv=EV%nvarv+EV%lmaxnrv
         if (CP%Num_Nu_massive /= 0 ) then
-            stop 'massive neutrinos not supported for vector modes'
+            call MpiStop('massive neutrinos not supported for vector modes')
         end if
     else
         EV%nvarv=0
@@ -1895,11 +945,11 @@ end function dchitp
 
     end subroutine SwitchToMassiveNuApprox
 
-    subroutine MassiveNuVarsOut(EV,y,yprime,a,grho,gpres,dgrho,dgq,dgpi, gdpi_diff,pidot_sum,clxnu_all)
+    subroutine MassiveNuVarsOut(EV,y,yprime,a,grho,gpres,dgrho,dgq,dgpi, dgpi_diff,pidot_sum,clxnu_all)
     implicit none
     type(EvolutionVars) EV
     real(dl) :: y(EV%nvar), yprime(EV%nvar),a
-    real(dl), optional :: grho,gpres,dgrho,dgq,dgpi, gdpi_diff,pidot_sum,clxnu_all
+    real(dl), optional :: grho,gpres,dgrho,dgq,dgpi, dgpi_diff,pidot_sum,clxnu_all
     !grho = a^2 kappa rho
     !gpres = a^2 kappa p
     !dgrho = a^2 kappa \delta\rho
@@ -1952,7 +1002,7 @@ end function dchitp
         dgrhonu= dgrhonu + grhonu_t*clxnu
         if (present(dgq)) dgq  = dgq   + grhonu_t*qnu
         if (present(dgpi)) dgpi = dgpi  + grhonu_t*pinu
-        if (present(gdpi_diff)) gdpi_diff = gdpi_diff + pinu*(3*gpnu_t-grhonu_t)
+        if (present(dgpi_diff)) dgpi_diff = dgpi_diff + pinu*(3*gpnu_t-grhonu_t)
         if (present(pidot_sum)) pidot_sum = pidot_sum + grhonu_t*pinudot
     end do
     if (present(grho)) grho = grho  + grhonu
@@ -2066,7 +1116,7 @@ end function dchitp
     real(dl) pinu,q,aq,v
     integer iq, ind
 
-    if (EV%nq(nu_i)/=nqmax) stop 'Nu_pi: nq/=nqmax'
+    if (EV%nq(nu_i)/=nqmax) call MpiStop('Nu_pi: nq/=nqmax')
     pinu=0
     ind=EV%nu_ix(nu_i)+2
     am=a*nu_masses(nu_i)
@@ -2097,7 +1147,7 @@ end function dchitp
     ind=EV%nu_ix(nu_i)
     G11=0._dl
     G30=0._dl
-    if (EV%nq(nu_i)/=nqmax) stop 'Nu_Intvsq nq/=nqmax0'
+    if (EV%nq(nu_i)/=nqmax) call MpiStop('Nu_Intvsq nq/=nqmax0')
     do iq=1, EV%nq(nu_i)
         q=nu_q(iq)
         aq=am/q
@@ -2158,255 +1208,23 @@ end function dchitp
     end subroutine MassiveNuVars
 
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine output(EV,y, tau,sources, notused_custom_sources)
+    subroutine output(EV,y, tau,sources, num_custom_sources)
     use ThermoData
-    use lvalues
-    use ModelData
-    implicit none
     type(EvolutionVars) EV
-    real(dl), target :: y(EV%nvar),yprime(EV%nvar)
-    real(dl), dimension(:),pointer :: ypol,ypolprime
-
-    real(dl) dgq,grhob_t,grhor_t,grhoc_t,grhog_t,grhov_t,sigma,polter
-    real(dl) qgdot,pigdot,pirdot,vbdot,dgrho
-    real(dl) a,a2,dz,z,clxc,clxb,vb,clxg,qg,pig,clxr,qr,pir
-
-    real(dl) tau,x,divfac
-    real(dl) dgpi_diff, pidot_sum
-    real(dl), target :: pol(3),polprime(3)
-    !dgpi_diff = sum (3*p_nu -rho_nu)*pi_nu
-
-    real(dl) k,k2  ,adotoa, grho, gpres,etak,phi,dgpi
-    real(dl)  diff_rhopi, octg, octgprime
-    real(dl) sources(CTransScal%NumSources)
-    !        real(dl) t4,t92
-    real(dl) ISW
-    real(dl) w_eff
-    real(dl) hdotoh,ppiedot
-    integer, intent(in) :: notused_custom_sources !must be zero in _ppf version
-    real(dl) opacity, dopacity, ddopacity, visibility, dvisibility, ddvisibility, exptau, lenswindow
-
-
-    call IonizationFunctionsAtTime(tau, opacity, dopacity, ddopacity, &
-        visibility, dvisibility, ddvisibility, exptau, lenswindow)
-
+    real(dl), target :: y(EV%nvar), yprime(EV%nvar)
+    real(dl) tau
+    real(dl), target :: sources(CTransScal%NumSources)
+    integer, intent(in) :: num_custom_sources
 
     yprime = 0
+    EV%OutputSources => Sources
+    if (num_custom_sources>0) &
+        EV%CustomSources => sources(CTransScal%NumSources - num_custom_sources+1:)
     call derivs(EV,EV%ScalEqsToPropagate,tau,y,yprime)
-
-    if (EV%TightCoupling .or. EV%no_phot_multpoles) then
-        pol=0
-        polprime=0
-        ypolprime => polprime
-        ypol => pol
-    else
-        ypolprime => yprime(EV%polind+1:)
-        ypol => y(EV%polind+1:)
-    end if
-
-    k=EV%k_buf
-    k2=EV%k2_buf
-
-    a   =y(1)
-    a2  =a*a
-    etak=y(2)
-    clxc=y(3)
-    clxb=y(4)
-    vb  =y(5)
-    vbdot =yprime(5)
-
-    !  Compute expansion rate from: grho 8*pi*rho*a**2
-
-    grhob_t=grhob/a
-    grhoc_t=grhoc/a
-    grhor_t=grhornomass/a2
-    grhog_t=grhog/a2
-
-    !  8*pi*a*a*SUM[rho_i*clx_i] add radiation later
-    dgrho=grhob_t*clxb+grhoc_t*clxc
-
-    !  8*pi*a*a*SUM[(rho_i+p_i)*v_i]
-    dgq=grhob_t*vb
-
-    if (is_cosmological_constant) then
-        w_eff = -1_dl
-        grhov_t=grhov*a2
-    else
-        !ppf
-        w_eff=w_de(a)   !effective de
-        grhov_t=grho_de(a)/a2
-        dgrho=dgrho+EV%dgrho_e_ppf
-        dgq=dgq+EV%dgq_e_ppf
-    end if
-    grho=grhob_t+grhoc_t+grhor_t+grhog_t+grhov_t
-    gpres=(grhog_t+grhor_t)/3+grhov_t*w_eff
-
-
-    dgpi= 0
-    dgpi_diff = 0
-    pidot_sum = 0
-
-    if (CP%Num_Nu_Massive /= 0) then
-        call MassiveNuVarsOut(EV,y,yprime,a,grho,gpres,dgrho,dgq,dgpi, dgpi_diff,pidot_sum)
-    end if
-
-    adotoa=sqrt((grho+grhok)/3)
-
-    if (EV%no_nu_multpoles) then
-        z=(0.5_dl*dgrho/k + etak)/adotoa
-        dz= -adotoa*z - 0.5_dl*dgrho/k
-        clxr=-4*dz/k
-        qr=-4._dl/3*z
-        pir=0
-        pirdot=0
-    else
-        clxr=y(EV%r_ix)
-        qr  =y(EV%r_ix+1)
-        pir =y(EV%r_ix+2)
-        pirdot=yprime(EV%r_ix+2)
-    end if
-
-    if (EV%no_phot_multpoles) then
-        z=(0.5_dl*dgrho/k + etak)/adotoa
-        dz= -adotoa*z - 0.5_dl*dgrho/k
-        clxg=-4*dz/k -4/k*opacity*(vb+z)
-        qg=-4._dl/3*z
-        pig=0
-        pigdot=0
-        octg=0
-        octgprime=0
-        qgdot = -4*dz/3
-    else
-        if (EV%TightCoupling) then
-            pig = EV%pig
-            !pigdot=EV%pigdot
-            if (second_order_tightcoupling) then
-                octg = (3._dl/7._dl)*pig*(EV%k_buf/opacity)
-                ypol(2) = EV%pig/4 + EV%pigdot*(1._dl/opacity)*(-5._dl/8._dl)
-                ypol(3) = (3._dl/7._dl)*(EV%k_buf/opacity)*ypol(2)
-            else
-                ypol(2) = EV%pig/4
-                octg=0
-            end if
-            octgprime=0
-        else
-            pig =y(EV%g_ix+2)
-            pigdot=yprime(EV%g_ix+2)
-            octg=y(EV%g_ix+3)
-            octgprime=yprime(EV%g_ix+3)
-        end if
-        clxg=y(EV%g_ix)
-        qg  =y(EV%g_ix+1)
-        qgdot =yprime(EV%g_ix+1)
-    end if
-
-    dgrho = dgrho + grhog_t*clxg+grhor_t*clxr
-    dgq   = dgq   + grhog_t*qg+grhor_t*qr
-    dgpi  = dgpi  + grhor_t*pir + grhog_t*pig
-
-
-    !  Get sigma (shear) and z from the constraints
-    !  have to get z from eta for numerical stability
-    z=(0.5_dl*dgrho/k + etak)/adotoa
-    sigma=(z+1.5_dl*dgq/k2)/EV%Kf(1)
-
-    if (is_cosmological_constant) then
-        ppiedot=0
-    else
-        hdotoh=(-3._dl*grho-3._dl*gpres -2._dl*grhok)/6._dl/adotoa
-        ppiedot=3._dl*EV%dgrho_e_ppf+EV%dgq_e_ppf*(12._dl/k*adotoa+k/adotoa-3._dl/k*(adotoa+hdotoh))+ &
-            grhov_t*(1+w_eff)*k*z/adotoa -2._dl*k2*EV%Kf(1)*(yprime(EV%w_ix)/adotoa-2._dl*y(EV%w_ix))
-        ppiedot=ppiedot*adotoa/EV%Kf(1)
-    end if
-
-    polter = 0.1_dl*pig+9._dl/15._dl*ypol(2)
-
-    if (CP%flat) then
-        x=k*(CP%tau0-tau)
-        divfac=x*x
-    else
-        x=(CP%tau0-tau)/CP%r
-        divfac=(CP%r*rofChi(x))**2*k2
-    end if
-
-
-    if (EV%TightCoupling) then
-        if (second_order_tightcoupling) then
-            pigdot = EV%pigdot
-            ypolprime(2)= (pigdot/4._dl)*(1+(5._dl/2._dl)*(dopacity/opacity**2))
-        else
-            pigdot = -dopacity/opacity*pig + 32._dl/45*k/opacity*(-2*adotoa*sigma  &
-                +etak/EV%Kf(1)-  dgpi/k +vbdot )
-            ypolprime(2)= pigdot/4
-        end if
-    end if
-
-    pidot_sum =  pidot_sum + grhog_t*pigdot + grhor_t*pirdot
-    diff_rhopi = pidot_sum - (4*dgpi+ dgpi_diff )*adotoa + ppiedot
-
-
-    !Maple's fortran output - see scal_eqs.map
-    !2phi' term (\phi' + \psi' in Newtonian gauge)
-    ISW = (4.D0/3.D0*k*EV%Kf(1)*sigma+(-2.D0/3.D0*sigma-2.D0/3.D0*etak/adotoa)*k &
-        -diff_rhopi/k**2-1.D0/adotoa*dgrho/3.D0+(3.D0*gpres+5.D0*grho)*sigma/k/3.D0 &
-        -2.D0/k*adotoa/EV%Kf(1)*etak)*exptau
-
-    !e.g. to get only late-time ISW
-    !  if (1/a-1 < 30) ISW=0
-
-    !The rest, note y(9)->octg, yprime(9)->octgprime (octopoles)
-    sources(1)= ISW +  ((-9.D0/160.D0*pig-27.D0/80.D0*ypol(2))/k**2*opacity+ &
-        (11.D0/10.D0*sigma- 3.D0/8.D0*EV%Kf(2)*ypol(3)+vb-9.D0/80.D0*EV%Kf(2)*octg+3.D0/40.D0*qg)/k- &
-        (-180.D0*ypolprime(2)-30.D0*pigdot)/k**2/160.D0)*dvisibility + &
-        (-(9.D0*pigdot+ 54.D0*ypolprime(2))/k**2*opacity/160.D0+pig/16.D0+clxg/4.D0+3.D0/8.D0*ypol(2) + &
-        (-21.D0/5.D0*adotoa*sigma-3.D0/8.D0*EV%Kf(2)*ypolprime(3) + &
-        vbdot+3.D0/40.D0*qgdot- 9.D0/80.D0*EV%Kf(2)*octgprime)/k + &
-        (-9.D0/160.D0*dopacity*pig-21.D0/10.D0*dgpi-27.D0/80.D0*dopacity*ypol(2))/k**2)*visibility + &
-        (3.D0/16.D0*ddvisibility*pig+9.D0/8.D0*ddvisibility*ypol(2))/k**2+21.D0/10.D0/k/EV%Kf(1)*visibility*etak
-
-    ! Doppler term
-    !   sources(1)=  (sigma+vb)/k*dvisibility+((-2.D0*adotoa*sigma+vbdot)/k-1.D0/k**2*dgpi)*visibility &
-    !         +1.D0/k/EV%Kf(1)*visibility*etak
-
-    !Equivalent full result
-    !    t4 = 1.D0/adotoa
-    !    t92 = k**2
-    !    sources(1) = (4.D0/3.D0*EV%Kf(1)*exptau*sigma+2.D0/3.D0*(-sigma-t4*etak)*exptau)*k+ &
-    !        (3.D0/8.D0*ypol(2)+pig/16.D0+clxg/4.D0)*visibility
-    !    sources(1) = sources(1)-t4*exptau*dgrho/3.D0+((11.D0/10.D0*sigma- &
-    !         3.D0/8.D0*EV%Kf(2)*ypol(3)+vb+ 3.D0/40.D0*qg-9.D0/80.D0*EV%Kf(2)*y(9))*dvisibility+(5.D0/3.D0*grho+ &
-    !        gpres)*sigma*exptau+(-2.D0*adotoa*etak*exptau+21.D0/10.D0*etak*visibility)/ &
-    !        EV%Kf(1)+(vbdot-3.D0/8.D0*EV%Kf(2)*ypolprime(3)+3.D0/40.D0*qgdot-21.D0/ &
-    !        5.D0*sigma*adotoa-9.D0/80.D0*EV%Kf(2)*yprime(9))*visibility)/k+(((-9.D0/160.D0*pigdot- &
-    !        27.D0/80.D0*ypolprime(2))*opacity-21.D0/10.D0*dgpi -27.D0/80.D0*dopacity*ypol(2) &
-    !        -9.D0/160.D0*dopacity*pig)*visibility - diff_rhopi*exptau+((-27.D0/80.D0*ypol(2)-9.D0/ &
-    !        160.D0*pig)*opacity+3.D0/16.D0*pigdot+9.D0/8.D0*ypolprime(2))*dvisibility+9.D0/ &
-    !        8.D0*ddvisibility*ypol(2)+3.D0/16.D0*ddvisibility*pig)/t92
-
-
-    if (x > 0._dl) then
-        !E polarization source
-        sources(2)=visibility*polter*(15._dl/8._dl)/divfac
-        !factor of four because no 1/16 later
-    else
-        sources(2)=0
-    end if
-
-    if (CTransScal%NumSources > 2) then
-        !Get lensing sources
-        !Can modify this here if you want to get power spectra for other tracer
-        if (tau > tau_maxvis .and. CP%tau0-tau > 0.1_dl) then
-            !phi_lens = Phi - 1/2 kappa (a/k)^2 sum_i rho_i pi_i
-            phi = -(dgrho +3*dgq*adotoa/k)/(k2*EV%Kf(1)*2) - dgpi/k2/2
-
-            sources(3) = -2*phi*f_K(tau-tau_maxvis)/(f_K(CP%tau0-tau_maxvis)*f_K(CP%tau0-tau))
-            !We include the lensing factor of two here
-        else
-            sources(3) = 0
-        end if
-    end if
+    nullify(EV%OutputSources, EV%CustomSources)
 
     end subroutine output
+
 
 
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -2425,11 +1243,8 @@ end function dchitp
     real(dl), dimension(:),pointer :: E,Bprime,Eprime
     real(dl), target :: pol(3),polEprime(3), polBprime(3)
     real(dl) dtauda
-    real(dl) opacity, dopacity, ddopacity, visibility, dvisibility, ddvisibility, exptau, lenswindow
-
-
-    call IonizationFunctionsAtTime(tau, opacity, dopacity, ddopacity, &
-        visibility, dvisibility, ddvisibility, exptau, lenswindow)
+    real(dl) opacity, dopacity, ddopacity, &
+        visibility, dvisibility, ddvisibility, exptau, lenswindow
 
     call derivst(EV,EV%nvart,tau,yt,ytprime)
 
@@ -2439,6 +1254,8 @@ end function dchitp
     shear = yt(3)
 
     x=(CP%tau0-tau)/CP%r
+    call IonizationFunctionsAtTime(tau, opacity, dopacity, ddopacity, &
+        visibility, dvisibility, ddvisibility, exptau, lenswindow)
 
     !  And the electric part of the Weyl.
     if (.not. EV%TensTightCoupling) then
@@ -2508,11 +1325,8 @@ end function dchitp
     real(dl) vb,qg, pig, polter, sigma
     real(dl) k,k2
     real(dl), dimension(:),pointer :: E,Eprime
-    real(dl) opacity, dopacity, ddopacity, visibility, dvisibility, ddvisibility, exptau, lenswindow
-
-
-    call IonizationFunctionsAtTime(tau, opacity, dopacity, ddopacity, &
-        visibility, dvisibility, ddvisibility, exptau, lenswindow)
+    real(dl) opacity, dopacity, ddopacity, &
+        visibility, dvisibility, ddvisibility, exptau, lenswindow
 
 
     call derivsv(EV,EV%nvarv,tau,yv,yvprime)
@@ -2533,6 +1347,9 @@ end function dchitp
 
         polter = 0.1_dl*pig + 9._dl/15._dl*E(2)
         polterdot=9._dl/15._dl*Eprime(2) + 0.1_dl*yvprime(5)
+
+        call IonizationFunctionsAtTime(tau, opacity, dopacity, ddopacity, &
+            visibility, dvisibility, ddvisibility, exptau, lenswindow)
 
         if (yv(1) < 1e-3) then
             dt = 1
@@ -2568,11 +1385,13 @@ end function dchitp
     real(dl) a,a2, iqg, rhomass,a_massive, ep
     integer l,i, nu_i, j, ind
     integer, parameter :: i_clxg=1,i_clxr=2,i_clxc=3, i_clxb=4, &
-        i_qg=5,i_qr=6,i_vb=7,i_pir=8, i_eta=9, i_aj3r=10,i_clxq=11,i_vq=12
-    integer, parameter :: i_max = i_vq
+        i_qg=5,i_qr=6,i_vb=7,i_pir=8, i_eta=9, i_aj3r=10,i_clxde=11,i_vde=12
+    integer, parameter :: i_max = i_vde
     real(dl) initv(6,1:i_max), initvec(1:i_max)
 
     nullify(EV%OutputTransfer) !Should not be needed, but avoids issues in ifort 14
+    nullify(EV%OutputSources)
+    nullify(EV%CustomSources)
 
     if (CP%flat) then
         EV%k_buf=EV%q
@@ -2634,7 +1453,7 @@ end function dchitp
     Rp15=4*Rv+15
 
     if (CP%Scalar_initial_condition > initial_nummodes) &
-        stop 'Invalid initial condition for scalar modes'
+        call MpiStop('Invalid initial condition for scalar modes')
 
     a=tau*adotrad*(1+omtau/4)
     a2=a*a
@@ -2669,7 +1488,7 @@ end function dchitp
         initv(2,i_eta)= Rc*omtau*(1._dl/3 - omtau/8)*EV%Kf(1)
         initv(2,i_aj3r)=0
         !Baryon isocurvature
-        if (Rc==0) stop 'Isocurvature initial conditions assume non-zero dark matter'
+        if (Rc==0) call MpiStop('Isocurvature initial conditions assume non-zero dark matter')
 
         initv(3,:) = initv(2,:)*(Rb/Rc)
         initv(3,i_clxc) = initv(3,i_clxb)
@@ -2731,8 +1550,9 @@ end function dchitp
     y(EV%g_ix)=InitVec(i_clxg)
     y(EV%g_ix+1)=InitVec(i_qg)
 
-    if (.not. is_cosmological_constant) then
-        y(EV%w_ix) = InitVec(i_clxq) !ppf: Gamma=0, i_clxq stands for i_Gamma
+    if (w_lam /= -1 .and. w_Perturb) then
+        y(EV%w_ix) = InitVec(i_clxde)
+        y(EV%w_ix+1) = InitVec(i_vde)
     end if
 
     !  Neutrinos
@@ -2863,7 +1683,7 @@ end function dchitp
         EV%k2_buf=EV%q2
         EV%k_buf=EV%q
     else
-        stop 'Vectors not supported in non-flat models'
+        call MpiStop('Vectors not supported in non-flat models')
     endif
 
     k=EV%k_buf
@@ -2917,8 +1737,6 @@ end function dchitp
     implicit none
     type(EvolutionVars) EV
     real(dl), intent(in) :: tau
-    real(dl) clxc, clxb, clxg, clxr, k,k2
-    real(dl) grho,gpres,dgrho,dgq,a
     real, target :: Arr(:)
     real(dl) y(EV%nvar),yprime(EV%nvar)
 
@@ -2953,18 +1771,21 @@ end function dchitp
     real(dl) q,aq,v
     real(dl) G11_t,G30_t, wnu_arr(max_nu)
 
-    real(dl) dgq,grhob_t,grhor_t,grhoc_t,grhog_t,grhov_t,sigma,polter
+    real(dl) dgq,grhob_t,grhor_t,grhoc_t,grhog_t,grhov_t,grhonu_t,sigma,polter
     real(dl) qgdot,qrdot,pigdot,pirdot,vbdot,dgrho,adotoa
     real(dl) a,a2,z,clxc,clxb,vb,clxg,qg,pig,clxr,qr,pir
-    real(dl) clxq, vq,  E2, dopacity
+    real(dl) clxde, qde,  E2, dopacity
     integer l,i,ind, ind2, off_ix, ix
     real(dl) dgs,sigmadot,dz !, ddz
-    real(dl) dgpi,dgrho_matter,grho_matter, clxnu_all
+    real(dl) dgpi,dgrho_matter,grho_matter, clxnu, gpres_nu
     !non-flat vars
     real(dl) cothxor !1/tau in flat case
-    !ppf
-    real(dl) Gamma,S_Gamma,ckH,Gammadot,Fa,dgqe,dgrhoe, vT
-    real(dl) w_eff, grhoT
+    !Variables for source calculation
+    real(dl) diff_rhopi, pidot_sum, dgpi_diff, phi
+    real(dl) E(2:3), Edot(2:3)
+    real(dl) phidot, polterdot, polterddot, octg, octgdot
+    real(dl) ddopacity, visibility, dvisibility, ddvisibility, exptau, lenswindow
+    real(dl) ISW, quadrupole_source, doppler, monopole_source, tau0
 
     k=EV%k_buf
     k2=EV%k2_buf
@@ -2987,13 +1808,10 @@ end function dchitp
     grhoc_t=grhoc/a
     grhor_t=grhornomass/a2
     grhog_t=grhog/a2
-    if (is_cosmological_constant) then
+    if (w_lam==-1._dl) then
         grhov_t=grhov*a2
-        w_eff = -1_dl
     else
-        !ppf
-        w_eff=w_de(a)   !effective de
-        grhov_t=grho_de(a)/a2
+        grhov_t=grhov*a**(-1-3*w_lam)
     end if
 
     !  Get sound speed and ionisation fraction.
@@ -3003,8 +1821,8 @@ end function dchitp
         call thermo(tau,cs2,opacity)
     end if
 
-    gpres=(grhor_t+grhog_t)/3._dl
-    grho_matter=grhob_t+grhoc_t
+    gpres_nu=0
+    grhonu_t=0
 
     !total perturbations: matter terms first, then add massive nu, de and radiation
     !  8*pi*a*a*SUM[rho_i*clx_i]
@@ -3013,9 +1831,10 @@ end function dchitp
     dgq=grhob_t*vb
 
     if (CP%Num_Nu_Massive > 0) then
-        call MassiveNuVars(EV,ay,a,grho_matter,gpres,dgrho_matter,dgq, wnu_arr)
+        call MassiveNuVars(EV,ay,a,grhonu_t,gpres_nu,dgrho_matter,dgq, wnu_arr)
     end if
 
+    grho_matter=grhonu_t+grhob_t+grhoc_t
     grho = grho_matter+grhor_t+grhog_t+grhov_t
 
     if (CP%flat) then
@@ -3028,12 +1847,12 @@ end function dchitp
 
     dgrho = dgrho_matter
 
-    ! if (w_lam /= -1 .and. w_Perturb) then
-    !    clxq=ay(EV%w_ix)
-    !    vq=ay(EV%w_ix+1)
-    !    dgrho=dgrho + clxq*grhov_t
-    !    dgq = dgq + vq*grhov_t*(1+w_lam)
-    !end if
+    if (w_lam /= -1 .and. w_Perturb) then
+        clxde=ay(EV%w_ix)
+        qde=ay(EV%w_ix+1)*(1+w_lam)
+        dgrho=dgrho + clxde*grhov_t
+        dgq = dgq + qde*grhov_t
+    end if
 
     if (EV%no_nu_multpoles) then
         !RSA approximation of arXiv:1104.2933, dropping opactity terms in the velocity
@@ -3080,38 +1899,6 @@ end function dchitp
 
     ayprime(1)=adotoa*a
 
-    if (.not. is_cosmological_constant) then
-        !ppf
-        grhoT = grho - grhov_t
-        vT= dgq/(grhoT+gpres)
-        Gamma=ay(EV%w_ix)
-
-        !sigma for ppf
-        sigma = (etak + (dgrho + 3*adotoa/k*dgq)/2._dl/k)/EV%kf(1) - k*Gamma
-        sigma = sigma/adotoa
-
-        S_Gamma=grhov_t*(1+w_eff)*(vT+sigma)*k/adotoa/2._dl/k2
-        ckH=c_Gamma_ppf*k/adotoa
-        Gammadot=S_Gamma/(1+ckH*ckH)- Gamma -ckH*ckH*Gamma
-        Gammadot=Gammadot*adotoa
-        ayprime(EV%w_ix)=Gammadot
-
-        if(ckH*ckH.gt.3.d1)then
-            Gamma=0
-            Gammadot=0.d0
-            ayprime(EV%w_ix)=Gammadot
-        endif
-
-        Fa=1+3*(grhoT+gpres)/2._dl/k2/EV%kf(1)
-        dgqe=S_Gamma - Gammadot/adotoa - Gamma
-        dgqe=-dgqe/Fa*2._dl*k*adotoa + vT*grhov_t*(1+w_eff)
-        dgrhoe=-2*k2*EV%kf(1)*Gamma-3/k*adotoa*dgqe
-        dgrho=dgrho+dgrhoe
-        dgq=dgq+dgqe
-
-        EV%dgrho_e_ppf=dgrhoe
-        EV%dgq_e_ppf=dgqe
-    end if
 
     !  Get sigma (shear) and z from the constraints
     ! have to get z from eta for numerical stability
@@ -3125,36 +1912,11 @@ end function dchitp
         ayprime(2)=0.5_dl*dgq + CP%curv*z
     end if
 
-    !if (w_lam /= -1 .and. w_Perturb) then
-    !
-    !   ayprime(EV%w_ix)= -3*adotoa*(cs2_lam-w_lam)*(clxq+3*adotoa*(1+w_lam)*vq/k) &
-    !       -(1+w_lam)*k*vq -(1+w_lam)*k*z
-    !
-    !   ayprime(EV%w_ix+1) = -adotoa*(1-3*cs2_lam)*vq + k*cs2_lam*clxq/(1+w_lam)
-    !
-    !end if
-    !
+    if (w_lam /= -1 .and. w_Perturb) then
+        ayprime(EV%w_ix)= -3*adotoa*(cs2_lam-w_lam)*(clxde+3*adotoa*qde/k) &
+            - k*qde -(1+w_lam)*k*z
 
-    if (associated(EV%OutputTransfer)) then
-        EV%OutputTransfer(Transfer_kh) = k/(CP%h0/100._dl)
-        EV%OutputTransfer(Transfer_cdm) = clxc
-        EV%OutputTransfer(Transfer_b) = clxb
-        EV%OutputTransfer(Transfer_g) = clxg
-        EV%OutputTransfer(Transfer_r) = clxr
-        clxnu_all=0
-        dgpi  = grhor_t*pir + grhog_t*pig
-        if (CP%Num_Nu_Massive /= 0) then
-            call MassiveNuVarsOut(EV,ay,ayprime,a, clxnu_all =clxnu_all, dgpi= dgpi)
-        end if
-        EV%OutputTransfer(Transfer_nu) = clxnu_all
-        EV%OutputTransfer(Transfer_tot) =  dgrho_matter/grho_matter !includes neutrinos
-        EV%OutputTransfer(Transfer_nonu) = (grhob_t*clxb+grhoc_t*clxc)/(grhob_t + grhoc_t)
-        EV%OutputTransfer(Transfer_tot_de) =  dgrho/grho_matter
-        !Transfer_Weyl is k^2Phi, where Phi is the Weyl potential
-        EV%OutputTransfer(Transfer_Weyl) = -(dgrho +3*dgq*adotoa/k)/(EV%Kf(1)*2) - dgpi/2
-        EV%OutputTransfer(Transfer_Newt_vel_cdm)=  -k*sigma/adotoa
-        EV%OutputTransfer(Transfer_Newt_vel_baryon) = -k*(vb + sigma)/adotoa
-        EV%OutputTransfer(Transfer_vel_baryon_cdm) = vb
+        ayprime(EV%w_ix+1) = (-adotoa*(1-3*cs2_lam)*qde + k*cs2_lam*clxde)/(1+w_lam)
     end if
 
     !  CDM equation of motion
@@ -3174,7 +1936,7 @@ end function dchitp
 
     if (EV%TightCoupling) then
         !  ddota/a
-        gpres=gpres + grhov_t*w_eff
+        gpres=gpres_nu+ (grhog_t+grhor_t)/3 +grhov_t*w_lam
         adotdota=(adotoa*adotoa-gpres)/2
 
         pig = 32._dl/45/opacity*k*(sigma+vb)
@@ -3205,6 +1967,7 @@ end function dchitp
                 *(dopacity/opacity**2))
 
             EV%pigdot = pigdot
+
         end if
 
         !  Use tight-coupling approximation for vb
@@ -3213,8 +1976,8 @@ end function dchitp
             +k/4*pb43*(clxg-2*EV%Kf(1)*pig))/(1+pb43)
 
         vbdot=vbdot+pb43/(1+pb43)*slip
-
         EV%pig = pig
+
     else
         vbdot=-adotoa*vb+cs2*k*clxb-photbar*opacity*(4._dl/3*vb-qg)
     end if
@@ -3313,64 +2076,193 @@ end function dchitp
     end if ! no_nu_multpoles
 
     !  Massive neutrino equations of motion.
-    if (CP%Num_Nu_massive == 0) return
+    if (CP%Num_Nu_massive >0) then
+        !DIR$ LOOP COUNT MIN(1), AVG(1)
+        do nu_i = 1, CP%Nu_mass_eigenstates
+            if (EV%MassiveNuApprox(nu_i)) then
+                !Now EV%iq0 = clx, EV%iq0+1 = clxp, EV%iq0+2 = G_1, EV%iq0+3=G_2=pinu
+                !see astro-ph/0203507
+                G11_t=EV%G11(nu_i)/a/a2
+                G30_t=EV%G30(nu_i)/a/a2
+                off_ix = EV%nu_ix(nu_i)
+                w=wnu_arr(nu_i)
+                ayprime(off_ix)=-k*z*(w+1) + 3*adotoa*(w*ay(off_ix) - ay(off_ix+1))-k*ay(off_ix+2)
+                ayprime(off_ix+1)=(3*w-2)*adotoa*ay(off_ix+1) - 5._dl/3*k*z*w - k/3*G11_t
+                ayprime(off_ix+2)=(3*w-1)*adotoa*ay(off_ix+2) - k*(2._dl/3*EV%Kf(1)*ay(off_ix+3)-ay(off_ix+1))
+                ayprime(off_ix+3)=(3*w-2)*adotoa*ay(off_ix+3) + 2*w*k*sigma - k/5*(3*EV%Kf(2)*G30_t-2*G11_t)
+            else
+                ind=EV%nu_ix(nu_i)
+                !DIR$ LOOP COUNT MIN(3), AVG(3)
+                do i=1,EV%nq(nu_i)
+                    q=nu_q(i)
+                    aq=a*nu_masses(nu_i)/q
+                    v=1._dl/sqrt(1._dl+aq*aq)
 
-    !DIR$ LOOP COUNT MIN(1), AVG(1)
-    do nu_i = 1, CP%Nu_mass_eigenstates
-        if (EV%MassiveNuApprox(nu_i)) then
-            !Now EV%iq0 = clx, EV%iq0+1 = clxp, EV%iq0+2 = G_1, EV%iq0+3=G_2=pinu
-            !see astro-ph/0203507
-            G11_t=EV%G11(nu_i)/a/a2
-            G30_t=EV%G30(nu_i)/a/a2
-            off_ix = EV%nu_ix(nu_i)
-            w=wnu_arr(nu_i)
-            ayprime(off_ix)=-k*z*(w+1) + 3*adotoa*(w*ay(off_ix) - ay(off_ix+1))-k*ay(off_ix+2)
-            ayprime(off_ix+1)=(3*w-2)*adotoa*ay(off_ix+1) - 5._dl/3*k*z*w - k/3*G11_t
-            ayprime(off_ix+2)=(3*w-1)*adotoa*ay(off_ix+2) - k*(2._dl/3*EV%Kf(1)*ay(off_ix+3)-ay(off_ix+1))
-            ayprime(off_ix+3)=(3*w-2)*adotoa*ay(off_ix+3) + 2*w*k*sigma - k/5*(3*EV%Kf(2)*G30_t-2*G11_t)
-        else
-            ind=EV%nu_ix(nu_i)
-            !DIR$ LOOP COUNT MIN(3), AVG(3)
-            do i=1,EV%nq(nu_i)
-                q=nu_q(i)
-                aq=a*nu_masses(nu_i)/q
-                v=1._dl/sqrt(1._dl+aq*aq)
-
-                ayprime(ind)=-k*(4._dl/3._dl*z + v*ay(ind+1))
-                ind=ind+1
-                ayprime(ind)=v*(EV%denlk(1)*ay(ind-1)-EV%denlk2(1)*ay(ind+1))
-                ind=ind+1
-                if (EV%lmaxnu_tau(nu_i)==2) then
-                    ayprime(ind)=-ayprime(ind-2) -3*cothxor*ay(ind)
-                else
-                    ayprime(ind)=v*(EV%denlk(2)*ay(ind-1)-EV%denlk2(2)*ay(ind+1)) &
-                        +k*8._dl/15._dl*sigma
-                    do l=3,EV%lmaxnu_tau(nu_i)-1
-                        ind=ind+1
-                        ayprime(ind)=v*(EV%denlk(l)*ay(ind-1)-EV%denlk2(l)*ay(ind+1))
-                    end do
-                    !  Truncate moment expansion.
+                    ayprime(ind)=-k*(4._dl/3._dl*z + v*ay(ind+1))
+                    ind=ind+1
+                    ayprime(ind)=v*(EV%denlk(1)*ay(ind-1)-EV%denlk2(1)*ay(ind+1))
+                    ind=ind+1
+                    if (EV%lmaxnu_tau(nu_i)==2) then
+                        ayprime(ind)=-ayprime(ind-2) -3*cothxor*ay(ind)
+                    else
+                        ayprime(ind)=v*(EV%denlk(2)*ay(ind-1)-EV%denlk2(2)*ay(ind+1)) &
+                            +k*8._dl/15._dl*sigma
+                        do l=3,EV%lmaxnu_tau(nu_i)-1
+                            ind=ind+1
+                            ayprime(ind)=v*(EV%denlk(l)*ay(ind-1)-EV%denlk2(l)*ay(ind+1))
+                        end do
+                        !  Truncate moment expansion.
+                        ind = ind+1
+                        ayprime(ind)=k*v*ay(ind-1)-(EV%lmaxnu_tau(nu_i)+1)*cothxor*ay(ind)
+                    end if
                     ind = ind+1
-                    ayprime(ind)=k*v*ay(ind-1)-(EV%lmaxnu_tau(nu_i)+1)*cothxor*ay(ind)
-                end if
-                ind = ind+1
-            end do
-        end if
-    end do
+                end do
+            end if
+        end do
 
-    if (EV%has_nu_relativistic) then
-        ind=EV%nu_pert_ix
-        ayprime(ind)=+k*a2*qr -k*ay(ind+1)
-        ind2= EV%r_ix
-        do l=1,EV%lmaxnu_pert-1
+        if (EV%has_nu_relativistic) then
+            ind=EV%nu_pert_ix
+            ayprime(ind)=+k*a2*qr -k*ay(ind+1)
+            ind2= EV%r_ix
+            do l=1,EV%lmaxnu_pert-1
+                ind=ind+1
+                ind2=ind2+1
+                ayprime(ind)= -a2*(EV%denlk(l)*ay(ind2-1)-EV%denlk2(l)*ay(ind2+1)) &
+                    +   (EV%denlk(l)*ay(ind-1)-EV%denlk2(l)*ay(ind+1))
+            end do
             ind=ind+1
             ind2=ind2+1
-            ayprime(ind)= -a2*(EV%denlk(l)*ay(ind2-1)-EV%denlk2(l)*ay(ind2+1)) &
-                +   (EV%denlk(l)*ay(ind-1)-EV%denlk2(l)*ay(ind+1))
-        end do
-        ind=ind+1
-        ind2=ind2+1
-        ayprime(ind)= k*(ay(ind-1) -a2*ay(ind2-1)) -(EV%lmaxnu_pert+1)*cothxor*ay(ind)
+            ayprime(ind)= k*(ay(ind-1) -a2*ay(ind2-1)) -(EV%lmaxnu_pert+1)*cothxor*ay(ind)
+        end if
+    end if
+
+    if (associated(EV%OutputTransfer) .or. associated(EV%OutputSources)) then
+        if (EV%TightCoupling .or. EV%no_phot_multpoles) then
+            E=0
+            Edot=0
+        else
+            E = ay(EV%polind+2:EV%polind+3)
+            Edot = ayprime(EV%polind+2:EV%polind+3)
+        end if
+        if (EV%no_nu_multpoles) then
+            pirdot=0
+            qrdot = -4*dz/3
+        end if
+        if (EV%no_phot_multpoles) then
+            pigdot=0
+            octg=0
+            octgdot=0
+            qgdot = -4*dz/3
+        else
+            if (EV%TightCoupling) then
+                if (second_order_tightcoupling) then
+                    octg = (3._dl/7._dl)*pig*(EV%k_buf/opacity)
+                    E(2) = pig/4 + pigdot*(1._dl/opacity)*(-5._dl/8._dl)
+                    E(3) = (3._dl/7._dl)*(EV%k_buf/opacity)*E(2)
+                    Edot(2)= (pigdot/4._dl)*(1+(5._dl/2._dl)*(dopacity/opacity**2))
+                else
+                    pigdot = -dopacity/opacity*pig + 32._dl/45*k/opacity*(-2*adotoa*sigma  &
+                        +etak/EV%Kf(1)-  dgpi/k +vbdot )
+                    Edot(2) = pigdot/4
+                    E(2) = pig/4
+                    octg=0
+                end if
+                octgdot=0
+            else
+                octg=ay(EV%g_ix+3)
+                octgdot=ayprime(EV%g_ix+3)
+            end if
+        end if
+
+        dgpi  = grhor_t*pir + grhog_t*pig
+        dgpi_diff = 0  !sum (3*p_nu -rho_nu)*pi_nu
+        pidot_sum = grhog_t*pigdot + grhor_t*pirdot
+        clxnu =0
+        if (CP%Num_Nu_Massive /= 0) then
+            call MassiveNuVarsOut(EV,ay,ayprime,a, dgpi=dgpi, clxnu_all=clxnu, &
+                dgpi_diff=dgpi_diff, pidot_sum=pidot_sum)
+        end if
+        diff_rhopi = pidot_sum - (4*dgpi+ dgpi_diff)*adotoa
+        gpres=gpres_nu+ (grhog_t+grhor_t)/3 +grhov_t*w_lam
+
+        phi = -((dgrho +3*dgq*adotoa/k)/EV%Kf(1) + dgpi)/(2*k2)
+
+        if (associated(EV%OutputTransfer)) then
+            EV%OutputTransfer(Transfer_kh) = k/(CP%h0/100._dl)
+            EV%OutputTransfer(Transfer_cdm) = clxc
+            EV%OutputTransfer(Transfer_b) = clxb
+            EV%OutputTransfer(Transfer_g) = clxg
+            EV%OutputTransfer(Transfer_r) = clxr
+            EV%OutputTransfer(Transfer_nu) = clxnu
+            EV%OutputTransfer(Transfer_tot) =  dgrho_matter/grho_matter !includes neutrinos
+            EV%OutputTransfer(Transfer_nonu) = (grhob_t*clxb+grhoc_t*clxc)/(grhob_t + grhoc_t)
+            EV%OutputTransfer(Transfer_tot_de) =  dgrho/grho_matter
+            !Transfer_Weyl is k^2Phi, where Phi is the Weyl potential
+            EV%OutputTransfer(Transfer_Weyl) = k2*phi
+            EV%OutputTransfer(Transfer_Newt_vel_cdm)=  -k*sigma/adotoa
+            EV%OutputTransfer(Transfer_Newt_vel_baryon) = -k*(vb + sigma)/adotoa
+            EV%OutputTransfer(Transfer_vel_baryon_cdm) = vb
+        end if
+        if (associated(EV%OutputSources)) then
+
+            call IonizationFunctionsAtTime(tau, opacity, dopacity, ddopacity, &
+                visibility, dvisibility, ddvisibility, exptau, lenswindow)
+
+            tau0 = CP%tau0
+            phidot = (1.0d0/2.0d0)*(adotoa*(-dgpi - 2*k2*phi) + dgq*k - &
+                diff_rhopi+ k*sigma*(gpres + grho))/k2
+            !time derivative of shear
+            sigmadot = -adotoa*sigma - 1.0d0/2.0d0*dgpi/k + k*phi
+            !quadrupole source derivatives; polter = pi_g/10 + 3/5 E_2
+            polter = pig/10+9._dl/15*E(2)
+            polterdot = (1.0d0/10.0d0)*pigdot + (3.0d0/5.0d0)*Edot(2)
+            polterddot = -2.0d0/25.0d0*adotoa*dgq/(k*EV%Kf(1)) - 4.0d0/75.0d0*adotoa* &
+                k*sigma - 4.0d0/75.0d0*dgpi - 2.0d0/75.0d0*dgrho/EV%Kf(1) - 3.0d0/ &
+                50.0d0*k*octgdot*EV%Kf(2) + (1.0d0/25.0d0)*k*qgdot - 1.0d0/5.0d0 &
+                *k*EV%Kf(2)*Edot(3) + (-1.0d0/10.0d0*pig + (7.0d0/10.0d0)* &
+                polter - 3.0d0/5.0d0*E(2))*dopacity + (-1.0d0/10.0d0*pigdot &
+                + (7.0d0/10.0d0)*polterdot - 3.0d0/5.0d0*Edot(2))*opacity
+            !Temperature source terms, after integrating by parts in conformal time
+
+            !2phi' term (\phi' + \psi' in Newtonian gauge), phi is the Weyl potential
+            ISW = 2*phidot*exptau
+            monopole_source =  (-etak/(k*EV%Kf(1)) + 2*phi + clxg/4)*visibility
+            doppler = ((sigma + vb)*dvisibility + (sigmadot + vbdot)*visibility)/k
+            quadrupole_source = (5.0d0/8.0d0)*(3*polter*ddvisibility + 6*polterdot*dvisibility &
+                + (k**2*polter + 3*polterddot)*visibility)/k**2
+
+            EV%OutputSources(1) = ISW + doppler + monopole_source + quadrupole_source
+
+            if (tau < tau0) then
+                !E polarization source
+                EV%OutputSources(2)=visibility*polter*(15._dl/8._dl)/(f_K(tau0-tau)**2*k2)
+                !factor of four because no 1/16 later
+            else
+                EV%OutputSources(2)=0
+            end if
+
+            if (size(EV%OutputSources) > 2) then
+                !Get lensing sources
+                !Can modify this here if you want to get power spectra for other tracer
+                if (tau>tau_maxvis .and. tau0-tau > 0.1_dl) then
+                    EV%OutputSources(3) = -2*phi*f_K(tau-tau_maxvis)/(f_K(tau0-tau_maxvis)*f_K(tau0-tau))
+                    !We include the lensing factor of two here
+                else
+                    EV%OutputSources(3) = 0
+                end if
+            end if
+            if (associated(EV%CustomSources)) then
+                call custom_sources_func(EV%CustomSources, tau, a, adotoa, grho, gpres,w_lam, cs2_lam, &
+                    grhob_t,grhor_t,grhoc_t,grhog_t,grhov_t,grhonu_t, &
+                    k, etak, ayprime(2), phi, phidot, sigma, sigmadot, &
+                    dgrho, clxg,clxb,clxc,clxr, clxnu, clxde, cs2*clxb, &
+                    dgq, qg, qr, qde, vb, qgdot, qrdot, vbdot, &
+                    dgpi, pig, pir, pigdot, pirdot, diff_rhopi, &
+                    polter, polterdot, polterddot, octg, octgdot, E, Edot, &
+                    opacity, dopacity, ddopacity, visibility, dvisibility, ddvisibility, exptau, &
+                    tau0, tau_maxvis, EV%Kf,f_K)
+            end if
+        end if
     end if
 
     end subroutine derivs
@@ -3392,8 +2284,6 @@ end function dchitp
     real(dl) sigma, qg,pig, qr, vb, rhoq, vbdot, photbar, pb43
     real(dl) k,k2,a,a2, adotdota
     real(dl) pir,adotoa
-
-    stop 'ppf not implemented for vectors'
 
     k2=EV%k2_buf
     k=EV%k_buf
@@ -3585,10 +2475,10 @@ end function dchitp
     grhoc_t=grhoc/a
     grhor_t=grhornomass/a2
     grhog_t=grhog/a2
-    if (is_cosmological_constant) then
+    if (w_lam==-1._dl) then
         grhov_t=grhov*a2
     else
-        grhov_t=grho_de(a)/a2
+        grhov_t=grhov*a**(-1-3*w_lam)
     end if
 
     grho=grhob_t+grhoc_t+grhor_t+grhog_t+grhov_t
