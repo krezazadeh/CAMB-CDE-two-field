@@ -1,4 +1,4 @@
-! equations_ppf-RK8-DG.f90
+! equations_ppf-RK8-KR-final.f90
 
     ! Equations module for dark energy with constant equation of state parameter w
     ! allowing for perturbations based on a quintessence model
@@ -360,30 +360,15 @@ real(16) :: phit0,chit0,phitp0,chitp0
 
 real(16) :: dNe
 
-! real(16) :: Nei,Hti,phiti,chiti,phitpi,chitpi
-! real(16) :: Neim1,Htim1,phitim1,chitim1,phitpim1,chitpim1
-! real(16) :: dHt,dphit,dchit,dphitp,dchitp
-! real(16) :: k0101,k0102,k0103,k0104,k0105,k0106,k0107,k0108,k0109,k0110
-! real(16) :: k0201,k0202,k0203,k0204,k0205,k0206,k0207,k0208,k0209,k0210
-! real(16) :: k0301,k0302,k0303,k0304,k0305,k0306,k0307,k0308,k0309,k0310
-! real(16) :: k0401,k0402,k0403,k0404,k0405,k0406,k0407,k0408,k0409,k0410
-! real(16) :: k0501,k0502,k0503,k0504,k0505,k0506,k0507,k0508,k0509,k0510
-! real(16) :: Netemp,Httemp,phittemp,chittemp,phitptemp,chitptemp
-
 real(16) :: Nei,Hti,phiti,chiti,phitpi,chitpi
 real(16) :: Neim1,Htim1,phitim1,chitim1,phitpim1,chitpim1
 real(16) :: dHt,dphit,dchit,dphitp,dchitp
-real(16) :: stepHt1,stepHt2,stepHt3,stepHt4
-real(16) :: stepphi1,stepphi2,stepphi3,stepphi4
-real(16) :: stepchi1,stepchi2,stepchi3,stepchi4
-real(16) :: stepphip1,stepphip2,stepphip3,stepphip4
-real(16) :: stepchip1,stepchip2,stepchip3,stepchip4,kfeed
-real(16) :: Hfeed,phifeed,chifeed,phipfeed,chipfeed
-
-real(16) cmat(1:10,1:10),kv(1:10),sv(1:10)
-real(16) stepHt(10),stepphi(10),stepchi(10), stepphip(10), stepchip(10)
-
-integer :: m
+real(16) :: k0101,k0102,k0103,k0104,k0105,k0106,k0107,k0108,k0109,k0110
+real(16) :: k0201,k0202,k0203,k0204,k0205,k0206,k0207,k0208,k0209,k0210
+real(16) :: k0301,k0302,k0303,k0304,k0305,k0306,k0307,k0308,k0309,k0310
+real(16) :: k0401,k0402,k0403,k0404,k0405,k0406,k0407,k0408,k0409,k0410
+real(16) :: k0501,k0502,k0503,k0504,k0505,k0506,k0507,k0508,k0509,k0510
+real(16) :: Netemp,Httemp,phittemp,chittemp,phitptemp,chitptemp
 
 integer :: leftpoint,rightpoint,midpoint
 
@@ -424,6 +409,9 @@ chitp0 = 0.0q0
 lambdaphitold = 0.0q0
 
 lambdaphit = (12.0q0 - 2.0q0*phitp0**2 - lambdachit*chit0**4 - 2.0q0*chitp0**2 - 12.0q0*Omegam0 - 12.0q0*Omegar0)/phit0**4
+
+! Important
+write(*, fmt="(1x,a)", advance="no") " "
 
 ! write(*,*) "lambdaphit = ", lambdaphit
 ! write(*,*) "deltalambdaphit = ", abs((lambdaphit - lambdaphitold)/lambdaphit)
@@ -475,175 +463,225 @@ chitim1 = chiti
 phitpim1 = phitpi
 chitpim1 = chitpi
 
-Neim1 = Nei
-Htim1 = Hti
-phitim1 = phiti
-chitim1 = chiti
-phitpim1 = phitpi
-chitpim1 = chitpi
+k0101 = dHt(Neim1,Htim1,phitim1,chitim1,phitpim1,chitpim1)
 
-stepHt=0.0q0
-stepphi=0.0q0
-stepchi=0.0q0
-stepphip=0.0q0
-stepchip=0.0q0
+k0201 = dphit(Neim1,Htim1,phitim1,chitim1,phitpim1,chitpim1)
 
-cmat(1,1)=0.q0
-cmat(2,1)=4.q0/27.q0
-cmat(1,1)=0.q0
-cmat(1,2)=0.q0
-cmat(2,2)=0.q0
+k0301 = dchit(Neim1,Htim1,phitim1,chitim1,phitpim1,chitpim1)
 
-cmat(3,3)=0.q0
-cmat(3,2)=1.q0/6.q0
-cmat(3,1)=1.q0/18.q0
-cmat(1,3)=0.q0
-cmat(2,3)=0.q0
+k0401 = dphitp(Neim1,Htim1,phitim1,chitim1,phitpim1,chitpim1)
 
-cmat(4,4)=0.q0
-cmat(4,3)=1.q0/4.q0
-cmat(4,2)=0.q0
-cmat(4,1)=1.q0/12.q0
-cmat(3,4)=0.q0
-cmat(2,4)=0.q0
-cmat(1,4)=0.q0
+k0501 = dchitp(Neim1,Htim1,phitim1,chitim1,phitpim1,chitpim1)
 
-cmat(5,5)=0.q0
-cmat(5,4)=3.q0/8.q0
-cmat(5,3)=0.q0
-cmat(5,2)=0.q0
-cmat(5,1)=1.q0/8.q0
-cmat(4,5)=0.q0
-cmat(3,5)=0.q0
-cmat(2,5)=0.q0
-cmat(1,5)=0.q0
+Netemp = Neim1 + (4.0q0/27.0q0)*dNe
 
-cmat(6,6)=0.q0
-cmat(6,5)=4.q0/27.q0
-cmat(6,4)=21.q0/27.q0
-cmat(6,3)=-1.q0/2.q0
-cmat(6,2)=0.q0
-cmat(6,1)=13.q0/54.q0
-cmat(1,6)=0.q0
-cmat(2,6)=0.q0
-cmat(3,6)=0.q0
-cmat(4,6)=0.q0
-cmat(5,6)=0.q0
+Httemp = Htim1 + (4.0q0/27.0q0)*dNe*k0101
 
-cmat(7,7)=0.q0
-cmat(7,6)=243.q0/4320.q0
+phittemp = phitim1 + (4.0q0/27.0q0)*dNe*k0201
 
-cmat(7,5)=-824.q0/4320.q0
-cmat(7,4)=966.q0/4320.q0
-cmat(7,3)=-54.q0/4320.q0
-cmat(7,2)=0.q0
-cmat(7,1)=389.q0/4320.q0
+chittemp = chitim1 + (4.0q0/27.0q0)*dNe*k0301
 
-cmat(1,7)=0.q0
-cmat(2,7)=0.q0
-cmat(3,7)=0.q0
-cmat(4,7)=0.q0
-cmat(5,7)=0.q0
-cmat(6,7)=0.q0
+phitptemp = phitpim1 + (4.0q0/27.0q0)*dNe*k0401
 
-cmat(8,8)=0.q0
-cmat(8,7)=800.q0/20.q0
-cmat(8,6)=-122.q0/20.q0
-cmat(8,5)=656.q0/20.q0
-cmat(8,4)=-1164.q0/20.q0
-cmat(8,3)=81.q0/20.q0
-cmat(8,2)=0.q0
-cmat(8,1)=-231.q0/20.q0
-cmat(1,8)=0.q0
-cmat(2,8)=0.q0
-cmat(3,8)=0.q0
-cmat(4,8)=0.q0
-cmat(5,8)=0.q0
-cmat(6,8)=0.q0
-cmat(7,8)=0.q0
+chitptemp = chitpim1 + (4.0q0/27.0q0)*dNe*k0501
 
-cmat(9,9)=0.q0
-cmat(9,8)=4.q0/288.q0
-cmat(9,7)=576.q0/288.q0
-cmat(9,6)=-9.q0/288.q0
-cmat(9,5)=456.q0/288.q0
-cmat(9,4)=-678.q0/288.q0
-cmat(9,3)=18.q0/288.q0
-cmat(9,2)=0.q0
-cmat(9,1)=-127.q0/288.q0
-cmat(1,9)=0.q0
-cmat(2,9)=0.q0
-cmat(3,9)=0.q0
-cmat(4,9)=0.q0
-cmat(5,9)=0.q0
-cmat(6,9)=0.q0
-cmat(7,9)=0.q0
-cmat(8,9)=0.q0
-cmat(10,10)=0.q0
-cmat(10,9)=720.q0/820.q0
-cmat(10,8)=-60.q0/820.q0
-cmat(10,7)=-5040.q0/820.q0
-cmat(10,6)=72.q0/820.q0
-cmat(10,5)=-3376.q0/820.q0
-cmat(10,4)=7104.q0/820.q0
-cmat(10,3)=-81.q0/820.q0
-cmat(10,2)=0.q0
-cmat(10,1)=1481.q0/820.q0
-cmat(1,10)=0.q0
-cmat(2,10)=0.q0
-cmat(3,10)=0.q0
-cmat(4,10)=0.q0
-cmat(5,10)=0.q0
-cmat(6,10)=0.q0
-cmat(7,10)=0.q0
-cmat(8,10)=0.q0
-cmat(9,10)=0.q0
+k0102 = dHt(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
 
-kv(1)=0.q0
-kv(2)=4.q0*dNe/27.q0
+k0202 = dphit(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
 
-kv(3)=(2.q0/9.q0)*dNe
-kv(4)= (1.q0/3.q0)*dNe
+k0302 = dchit(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
 
-kv(5)= 0.5q0*dNe
-kv(6)=2.q0*dNe/3.q0
-kv(7)=1.q0*dNe/6.q0
-kv(8)=dNe
+k0402 = dphitp(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
 
-kv(9)=(5.q0/6.q0)*dNe
-kv(10)=dNe
+k0502 = dchitp(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
 
-sv(1)=41.q0/840.q0
-sv(2)=0.q0
-sv(3)=0.q0
-sv(4)=27.0q0/840.q0
-sv(5)=272.0q0/840.0q0
-sv(6)=27.q0/840.0q0
-sv(7)=216.0q0/840.0q0
-sv(8)=0.0q0
-sv(9)=216.0q0/840.0q0
-sv(10)=41.0q0/840.0q0
+Netemp = Neim1 + (2.0q0/9.0q0)*dNe
 
-do m=1,10,1
-kfeed=Neim1+kv(m)
-Hfeed=Htim1+dot_product(cmat(m,1:m),stepHt(1:m))
-phifeed=phitim1+dot_product(cmat(m,1:m),stepphi(1:m))
-chifeed=chitim1+dot_product(cmat(m,1:m),stepchi(1:m))
-phipfeed=phitpim1+dot_product(cmat(m,1:m),stepphip(1:m))
-chipfeed=chitpim1+dot_product(cmat(m,1:m),stepchip(1:m))
-stepHt(m) = dNe*dHt(kfeed,Hfeed, phifeed,chifeed,phipfeed,chipfeed)
-stepphi(m) = dNe*dphit(kfeed,Hfeed, phifeed,chifeed,phipfeed,chipfeed)
-stepchi(m) = dNe*dchit(kfeed,Hfeed, phifeed,chifeed,phipfeed,chipfeed)
-stepphip(m) = dNe*dphitp(kfeed,Hfeed, phifeed,chifeed,phipfeed,chipfeed)
-stepchip(m) = dNe*dchitp(kfeed,Hfeed, phifeed,chifeed,phipfeed,chipfeed)
-enddo
+Httemp = Htim1 + (1.0q0/18.0q0)*dNe*(k0101 + 3.0q0*k0102)
+
+phittemp = phitim1 + (1.0q0/18.0q0)*dNe*(k0201 + 3.0q0*k0202)
+
+chittemp = chitim1 + (1.0q0/18.0q0)*dNe*(k0301 + 3.0q0*k0302)
+
+phitptemp = phitpim1 + (1.0q0/18.0q0)*dNe*(k0401 + 3.0q0*k0402)
+
+chitptemp = chitpim1 + (1.0q0/18.0q0)*dNe*(k0501 + 3.0q0*k0502)
+
+k0103 = dHt(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
+
+k0203 = dphit(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
+
+k0303 = dchit(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
+
+k0403 = dphitp(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
+
+k0503 = dchitp(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
+
+Netemp = Neim1 + (1.0q0/3.0q0)*dNe
+
+Httemp = Htim1 + (1.0q0/12.0q0)*dNe*(k0101 + 3.0q0*k0103)
+
+phittemp = phitim1 + (1.0q0/12.0q0)*dNe*(k0201 + 3.0q0*k0203)
+
+chittemp = chitim1 + (1.0q0/12.0q0)*dNe*(k0301 + 3.0q0*k0303)
+
+phitptemp = phitpim1 + (1.0q0/12.0q0)*dNe*(k0401 + 3.0q0*k0403)
+
+chitptemp = chitpim1 + (1.0q0/12.0q0)*dNe*(k0501 + 3.0q0*k0503)
+
+k0104 = dHt(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
+
+k0204 = dphit(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
+
+k0304 = dchit(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
+
+k0404 = dphitp(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
+
+k0504 = dchitp(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
+
+Netemp = Neim1 + (1.0q0/2.0q0)*dNe
+
+Httemp = Htim1 + (1.0q0/8.0q0)*dNe*(k0101 + 3.0q0*k0104)
+
+phittemp = phitim1 + (1.0q0/8.0q0)*dNe*(k0201 + 3.0q0*k0204)
+
+chittemp = chitim1 + (1.0q0/8.0q0)*dNe*(k0301 + 3.0q0*k0304)
+
+phitptemp = phitpim1 + (1.0q0/8.0q0)*dNe*(k0401 + 3.0q0*k0404)
+
+chitptemp = chitpim1 + (1.0q0/8.0q0)*dNe*(k0501 + 3.0q0*k0504)
+
+k0105 = dHt(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
+
+k0205 = dphit(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
+
+k0305 = dchit(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
+
+k0405 = dphitp(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
+
+k0505 = dchitp(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
+
+Netemp = Neim1 + (2.0q0/3.0q0)*dNe
+
+Httemp = Htim1 + (1.0q0/54.0q0)*dNe*(13.0q0*k0101 - 27.0q0*k0103 + 42.0q0*k0104 + 8.0q0*k0105)
+
+phittemp = phitim1 + (1.0q0/54.0q0)*dNe*(13.0q0*k0201 - 27.0q0*k0203 + 42.0q0*k0204 + 8.0q0*k0205)
+
+chittemp = chitim1 + (1.0q0/54.0q0)*dNe*(13.0q0*k0301 - 27.0q0*k0303 + 42.0q0*k0304 + 8.0q0*k0305)
+
+phitptemp = phitpim1 + (1.0q0/54.0q0)*dNe*(13.0q0*k0401 - 27.0q0*k0403 + 42.0q0*k0404 + 8.0q0*k0405)
+
+chitptemp = chitpim1 + (1.0q0/54.0q0)*dNe*(13.0q0*k0501 - 27.0q0*k0503 + 42.0q0*k0504 + 8.0q0*k0505)
+
+k0106 = dHt(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
+
+k0206 = dphit(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
+
+k0306 = dchit(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
+
+k0406 = dphitp(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
+
+k0506 = dchitp(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
+
+Netemp = Neim1 + (1.0q0/6.0q0)*dNe
+
+Httemp = Htim1 + (1.0q0/4320.0q0)*dNe*(389.0q0*k0101 - 54.0q0*k0103 + 966.0q0*k0104 - 824.0q0*k0105 + 243.0q0*k0106)
+
+phittemp = phitim1 + (1.0q0/4320.0q0)*dNe*(389.0q0*k0201 - 54.0q0*k0203 + 966.0q0*k0204 - 824.0q0*k0205 + 243.0q0*k0206)
+
+chittemp = chitim1 + (1.0q0/4320.0q0)*dNe*(389.0q0*k0301 - 54.0q0*k0303 + 966.0q0*k0304 - 824.0q0*k0305 + 243.0q0*k0306)
+
+phitptemp = phitpim1 + (1.0q0/4320.0q0)*dNe*(389.0q0*k0401 - 54.0q0*k0403 + 966.0q0*k0404 - 824.0q0*k0405 + 243.0q0*k0406)
+
+chitptemp = chitpim1 + (1.0q0/4320.0q0)*dNe*(389.0q0*k0501 - 54.0q0*k0503 + 966.0q0*k0504 - 824.0q0*k0505 + 243.0q0*k0506)
+
+k0107 = dHt(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
+
+k0207 = dphit(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
+
+k0307 = dchit(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
+
+k0407 = dphitp(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
+
+k0507 = dchitp(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
+
+Netemp = Neim1 + dNe
+
+Httemp = Htim1 + (1.0q0/20.0q0)*dNe*(-231.0q0*k0101 + 81.0q0*k0103 - 1164.0q0*k0104 + 656.0q0*k0105 - 122.0q0*k0106 + 800.0q0*k0107)
+
+phittemp = phitim1 + (1.0q0/20.0q0)*dNe*(-231.0q0*k0201 + 81.0q0*k0203 - 1164.0q0*k0204 + 656.0q0*k0205 - 122.0q0*k0206 + 800.0q0*k0207)
+
+chittemp = chitim1 + (1.0q0/20.0q0)*dNe*(-231.0q0*k0301 + 81.0q0*k0303 - 1164.0q0*k0304 + 656.0q0*k0305 - 122.0q0*k0306 + 800.0q0*k0307)
+
+phitptemp = phitpim1 + (1.0q0/20.0q0)*dNe*(-231.0q0*k0401 + 81.0q0*k0403 - 1164.0q0*k0404 + 656.0q0*k0405 - 122.0q0*k0406 + 800.0q0*k0407)
+
+chitptemp = chitpim1 + (1.0q0/20.0q0)*dNe*(-231.0q0*k0501 + 81.0q0*k0503 - 1164.0q0*k0504 + 656.0q0*k0505 - 122.0q0*k0506 + 800.0q0*k0507)
+
+k0108 = dHt(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
+
+k0208 = dphit(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
+
+k0308 = dchit(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
+
+k0408 = dphitp(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
+
+k0508 = dchitp(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
+
+Netemp = Neim1 + (5.0q0/6.0q0)*dNe
+
+Httemp = Htim1 + (1.0q0/288.0q0)*dNe*(-127.0q0*k0101 + 18.0q0*k0103 - 678.0q0*k0104 + 456.0q0*k0105 - 9.0q0*k0106 + 576.0q0*k0107 + 4.0q0*k0108)
+
+phittemp = phitim1 + (1.0q0/288.0q0)*dNe*(-127.0q0*k0201 + 18.0q0*k0203 - 678.0q0*k0204 + 456.0q0*k0205 - 9.0q0*k0206 + 576.0q0*k0207 + 4.0q0*k0208)
+
+chittemp = chitim1 + (1.0q0/288.0q0)*dNe*(-127.0q0*k0301 + 18.0q0*k0303 - 678.0q0*k0304 + 456.0q0*k0305 - 9.0q0*k0306 + 576.0q0*k0307 + 4.0q0*k0308)
+
+phitptemp = phitpim1 + (1.0q0/288.0q0)*dNe*(-127.0q0*k0401 + 18.0q0*k0403 - 678.0q0*k0404 + 456.0q0*k0405 - 9.0q0*k0406 + 576.0q0*k0407 + 4.0q0*k0408)
+
+chitptemp = chitpim1 + (1.0q0/288.0q0)*dNe*(-127.0q0*k0501 + 18.0q0*k0503 - 678.0q0*k0504 + 456.0q0*k0505 - 9.0q0*k0506 + 576.0q0*k0507 + 4.0q0*k0508)
+
+k0109 = dHt(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
+
+k0209 = dphit(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
+
+k0309 = dchit(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
+
+k0409 = dphitp(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
+
+k0509 = dchitp(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
+
+Netemp = Neim1 + dNe
+
+Httemp = Htim1 + (1.0q0/820.0q0)*dNe*(1481.0q0*k0101 - 81.0q0*k0103 + 7104.0q0*k0104 - 3376.0q0*k0105 + 72.0q0*k0106 - 5040.0q0*k0107 - 60.0q0*k0108 + 720.0q0*k0109)
+
+phittemp = phitim1 + (1.0q0/820.0q0)*dNe*(1481.0q0*k0201 - 81.0q0*k0203 + 7104.0q0*k0204 - 3376.0q0*k0205 + 72.0q0*k0206 - 5040.0q0*k0207 - 60.0q0*k0208 + 720.0q0*k0209)
+
+chittemp = chitim1 + (1.0q0/820.0q0)*dNe*(1481.0q0*k0301 - 81.0q0*k0303 + 7104.0q0*k0304 - 3376.0q0*k0305 + 72.0q0*k0306 - 5040.0q0*k0307 - 60.0q0*k0308 + 720.0q0*k0309)
+
+phitptemp = phitpim1 + (1.0q0/820.0q0)*dNe*(1481.0q0*k0401 - 81.0q0*k0403 + 7104.0q0*k0404 - 3376.0q0*k0405 + 72.0q0*k0406 - 5040.0q0*k0407 - 60.0q0*k0408 + 720.0q0*k0409)
+
+chitptemp = chitpim1 + (1.0q0/820.0q0)*dNe*(1481.0q0*k0501 - 81.0q0*k0503 + 7104.0q0*k0504 - 3376.0q0*k0505 + 72.0q0*k0506 - 5040.0q0*k0507 - 60.0q0*k0508 + 720.0q0*k0509)
+
+k0110 = dHt(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
+
+k0210 = dphit(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
+
+k0310 = dchit(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
+
+k0410 = dphitp(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
+
+k0510 = dchitp(Netemp, Httemp, phittemp, chittemp, phitptemp, chitptemp)
 
 Nei = Neim1 + dNe
-Hti = Htim1 + dot_product(sv,stepHt)
-phiti = phitim1 + dot_product(sv,stepphi)
-chiti = chitim1 + dot_product(sv,stepchi)
-phitpi = phitpim1 + dot_product(sv,stepphip)
-chitpi = chitpim1 + dot_product(sv,stepchip)
+
+Hti = Htim1 + (1.0q0/840.0q0)*dNe*(41.0q0*k0101 + 27.0q0*k0104 + 272.0q0*k0105 + 27.0q0*k0106 + 216.0q0*k0107 + 216.0q0*k0109 + 41.0q0*k0110)
+
+phiti = phitim1 + (1.0q0/840.0q0)*dNe*(41.0q0*k0201 + 27.0q0*k0204 + 272.0q0*k0205 + 27.0q0*k0206 + 216.0q0*k0207 + 216.0q0*k0209 + 41.0q0*k0210)
+
+chiti = chitim1 + (1.0q0/840.0q0)*dNe*(41.0q0*k0301 + 27.0q0*k0304 + 272.0q0*k0305 + 27.0q0*k0306 + 216.0q0*k0307 + 216.0q0*k0309 + 41.0q0*k0310)
+
+phitpi = phitpim1 + (1.0q0/840.0q0)*dNe*(41.0q0*k0401 + 27.0q0*k0404 + 272.0q0*k0405 + 27.0q0*k0406 + 216.0q0*k0407 + 216.0q0*k0409 + 41.0q0*k0410)
+
+chitpi = chitpim1 + (1.0q0/840.0q0)*dNe*(41.0q0*k0501 + 27.0q0*k0504 + 272.0q0*k0505 + 27.0q0*k0506 + 216.0q0*k0507 + 216.0q0*k0509 + 41.0q0*k0510)
 
 i = i + 1
 arrayNe(i) = Nei
