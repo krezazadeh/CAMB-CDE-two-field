@@ -416,14 +416,19 @@ Ne0approx = -log(aitoa0approx)
 rhomtinitial = 3.0q0*Omegam0*aitoa0approx**(-3.0q0)
 rhortinitial = 3.0q0*Omegar0*aitoa0approx**(-4.0q0)
 
-phit0 = phitinitial
-chit0 = 0.0q0
-phitp0 = 0.0q0
-chitp0 = 0.0q0
+! phit0 = phitinitial
+! chit0 = 0.0q0
+! phitp0 = 0.0q0
+! chitp0 = 0.0q0
 
 lambdaphitold = 0.0q0
 
-lambdaphit = (12.0q0 - 2.0q0*phitp0**2 - lambdachit*chit0**4 - 2.0q0*chitp0**2 - 12.0q0*Omegam0 - 12.0q0*Omegar0)/phit0**4
+! lambdaphit = (12.0q0 - 2.0q0*phitp0**2 - lambdachit*chit0**4 - 2.0q0*chitp0**2 - 12.0q0*Omegam0 - 12.0q0*Omegar0)/phit0**4
+
+lambdaphit = 12.0q0*(1.0q0 - Omegam0 - Omegar0)/phitinitial**4
+
+! Important
+! write(*, fmt="(1x,a)", advance="no") " "
 
 ! write(*,*) "lambdaphit = ", lambdaphit
 ! write(*,*) "deltalambdaphit = ", abs((lambdaphit - lambdaphitold)/lambdaphit)
@@ -678,6 +683,18 @@ lambdaphit = (12.0q0 - 2.0q0*phitp0**2 - lambdachit*chit0**4 - 2.0q0*chitp0**2 -
 
 ! write(*,*) "lambdaphit = ", lambdaphit
 ! write(*,*) "deltalambdaphit = ", abs((lambdaphit - lambdaphitold)/lambdaphit)
+
+if (isnan(lambdaphit)) then
+
+    lambdaphitold = 0.0q0
+
+    ! lambdaphit = (12.0q0 - 2.0q0*phitp0**2 - lambdachit*chit0**4 - 2.0q0*chitp0**2 - 12.0q0*Omegam0 - 12.0q0*Omegar0)/phit0**4
+
+    lambdaphit = 12.0q0*(1.0q0 - Omegam0 - Omegar0)/phitinitial**4
+
+    ! write(*,*) "lambdaphit = ", lambdaphit
+
+end if
 
 ! write(*,*) "deltaNe = ", Ne0 - Ne0approx
 
