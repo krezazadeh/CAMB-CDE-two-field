@@ -719,7 +719,7 @@ lambdaphit = (12.0q0 - 2.0q0*phitp0**2 - lambdachit*chit0**4 - 2.0q0*chitp0**2 -
 ! write(*,*) "lambdaphit = ", lambdaphit
 ! write(*,*) "deltalambdaphit = ", abs((lambdaphit - lambdaphitold)/lambdaphit)
 
-if (isnan(lambdaphit)) then
+if ((isnan(lambdaphit)) .or. (abs(Ne0 - Ne0approx) > 5.0q0)) then
 
     lambdaphitold = 0.0q0
 
