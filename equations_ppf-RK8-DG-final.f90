@@ -359,6 +359,8 @@ real(16) :: Ne0
 real(16) :: phit0,chit0,phitp0,chitp0
 
 real(16) :: dNe
+integer freeze_field
+common /control/ freeze_field
 
 ! real(16) :: Nei,Hti,phiti,chiti,phitpi,chitpi
 ! real(16) :: Neim1,Htim1,phitim1,chitim1,phitpim1,chitpim1
@@ -439,6 +441,10 @@ phitpinitial = (-4.0q0*lambdaphit*phitinitial**3.0q0)/ &
                  &  ((4.0q0*rhomtinitial)/exp(3.0q0*Neinitial) + (4.0q0*rhortinitial)/ &
                  & exp(4.0q0*Neinitial) + &
                  &    lambdaphit*phitinitial**4.0q0 + lambdachit*chitinitial**4.0q0)
+
+if (freeze_field .eq. 1) then
+    phitpinitial=0.0q0
+endif
 
 chitpinitial = (-4.0q0*lambdachit*chitinitial**3.0q0)/ &
     &  ((4.0q0*rhomtinitial)/exp(3.0q0*Neinitial) + (4.0q0*rhortinitial)/ &
@@ -632,22 +638,37 @@ sv(10)=41.0q0/840.0q0
 do m=1,10,1
 kfeed=Neim1+kv(m)
 Hfeed=Htim1+dot_product(cmat(m,1:m),stepHt(1:m))
+if (freeze_field .eq. 0) then
 phifeed=phitim1+dot_product(cmat(m,1:m),stepphi(1:m))
-chifeed=chitim1+dot_product(cmat(m,1:m),stepchi(1:m))
 phipfeed=phitpim1+dot_product(cmat(m,1:m),stepphip(1:m))
+stepphi(m) = dNe*dphit(kfeed,Hfeed, phifeed,chifeed,phipfeed,chipfeed)
+stepphip(m) = dNe*dphitp(kfeed,Hfeed, phifeed,chifeed,phipfeed,chipfeed)
+else
+phifeed=phitim1
+phipfeed=0
+stepphi(m) = 0
+stepphip(m)=0
+endif
+
+chifeed=chitim1+dot_product(cmat(m,1:m),stepchi(1:m))
 chipfeed=chitpim1+dot_product(cmat(m,1:m),stepchip(1:m))
 stepHt(m) = dNe*dHt(kfeed,Hfeed, phifeed,chifeed,phipfeed,chipfeed)
-stepphi(m) = dNe*dphit(kfeed,Hfeed, phifeed,chifeed,phipfeed,chipfeed)
 stepchi(m) = dNe*dchit(kfeed,Hfeed, phifeed,chifeed,phipfeed,chipfeed)
-stepphip(m) = dNe*dphitp(kfeed,Hfeed, phifeed,chifeed,phipfeed,chipfeed)
 stepchip(m) = dNe*dchitp(kfeed,Hfeed, phifeed,chifeed,phipfeed,chipfeed)
 enddo
 
 Nei = Neim1 + dNe
 Hti = Htim1 + dot_product(sv,stepHt)
+
+if (freeze_field .eq. 0) then
 phiti = phitim1 + dot_product(sv,stepphi)
-chiti = chitim1 + dot_product(sv,stepchi)
 phitpi = phitpim1 + dot_product(sv,stepphip)
+else
+phiti=phitim1
+phitpi=0
+endif
+
+chiti = chitim1 + dot_product(sv,stepchi)
 chitpi = chitpim1 + dot_product(sv,stepchip)
 
 i = i + 1
@@ -676,7 +697,6 @@ phitp0 = phitpi
 ! phitp0 = 0.0q0
 chitp0 = chitpi
 ! chitp0 = 0.0q0
-
 lambdaphitold = lambdaphit
 
 lambdaphit = (12.0q0 - 2.0q0*phitp0**2 - lambdachit*chit0**4 - 2.0q0*chitp0**2 - 12.0q0*Omegam0 - 12.0q0*Omegar0)/phit0**4

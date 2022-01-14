@@ -24,7 +24,8 @@
     character(LEN=Ini_max_string_len) numstr, VectorFileName, &
         InputFile, ScalarFileName, TensorFileName, TotalFileName, LensedFileName,&
         LensedTotFileName, LensPotentialFileName,ScalarCovFileName
-    integer i
+    integer i,freeze_field
+    common /control/ freeze_field
     character(LEN=Ini_max_string_len) TransferFileNames(max_transfer_redshifts), &
         MatterPowerFileNames(max_transfer_redshifts), outroot, version_check
     real(dl) output_factor, nmassive
@@ -108,7 +109,7 @@
     myparameter4 = Ini_Read_Double('myparameter4')
     myparameter5 = Ini_Read_Double('myparameter5')
     myparameter6 = Ini_Read_Double('myparameter6')
-
+    freeze_field = Ini_Read_Int('freeze_field')
     P%h0     = Ini_Read_Double('hubble')
 
     if (Ini_Read_Logical('use_physical',.false.)) then
