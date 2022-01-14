@@ -218,7 +218,7 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 !Background evolution
-function dtauda(a)
+function dtauda(a,H0)
 !get d tau / d a
 use precision
 use constants
@@ -228,7 +228,7 @@ use LambdaGeneral
 implicit none
 real(dl) dtauda
 real(dl), intent(IN) :: a
-real(dl) rhonu,grhoa2,a2
+real(dl) rhonu,grhoa2,a2,H0
 integer nu_i
 
 real(dl) :: grhov_t
@@ -281,7 +281,7 @@ Hta2LCDM2 = Hta2LCDMvalue
 
 !! Ha2LCDM2 = H0inMpcinsec*Hta2LCDM2
 
-Hta2value = Hta2(real(a,16), Omegam0, Omegar0, lambdachit, phitinitial, chitinitial)
+Hta2value = Hta2(real(a,16), Omegam0, Omegar0, lambdachit, phitinitial, chitinitial,H0)
 
 ! Ha2 = Ha2LCDM1
 ! Ha2 = H0inMpcinsec*Hta2value
@@ -314,13 +314,15 @@ end function Hta2LCDM
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 function Hta2(ainput,Omegam0input,Omegar0input, &
-     & lambdachitinput,phitinitialinput,chitinitialinput)
-
+     & lambdachitinput,phitinitialinput,chitinitialinput,H0)
+use precision
+use constants
+use MassiveNu
 implicit none
 
 real(16) :: ainput,Omegam0input,Omegar0input, &
             &   lambdachitinput,phitinitialinput,chitinitialinput
-real(16) :: Hta2
+real(16) :: Hta2,H0
 
 real(16) :: Omegam0,Omegar0,lambdachit,phitinitial,chitinitial
 common /inputparametersofHta2/ Omegam0,Omegar0,lambdachit,phitinitial,chitinitial
@@ -361,6 +363,12 @@ real(16) :: phit0,chit0,phitp0,chitp0
 real(16) :: dNe
 integer freeze_field
 common /control/ freeze_field
+real(dl) HZERO
+real(dl) Num_Nu_massless,Nu_mass_fractions,Nu_mass_degeneracies,Nu_masses,lhsqcont_massive
+real(dl) Nu_Mass_numbers
+integer Nu_mass_eigenstates
+
+common /nfix/ omnuh2, HZERO,Num_Nu_massless,Nu_mass_fractions,Nu_mass_degeneracies,Nu_Mass_numbers
 
 ! real(16) :: Nei,Hti,phiti,chiti,phitpi,chitpi
 ! real(16) :: Neim1,Htim1,phitim1,chitim1,phitpim1,chitpim1
@@ -388,6 +396,68 @@ real(16) stepHt(10),stepphi(10),stepchi(10), stepphip(10), stepchip(10)
 integer :: m
 
 integer :: leftpoint,rightpoint,midpoint
+
+
+
+!Internal: Neutrino-related constants from CAMB input
+!contribution to H^2/(100 km /s/ Mpc)^2 of massive and massless neutrinos, respectively
+real(dl) lhsqcont_massless
+!zeta(3), conversion factor to get neutrino masses in eV for check comparison with rest of CAMB
+real(dl) zeta3, conv
+!Correction factor from massless to massive neutrino energy densities, constant to go from massive neutrino
+!mass fractions to massive neutrino massive values
+real(dl)  rhonu,nu_constant,grhom,grhog,grhor,rhocrit,omegah2_rad
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! non-trivial aspects to sharing neutrino data structures in new subroutines of CAMB
+! so we recompute somethings twice, but these are single numbers
+! should not be a significant slow down
+ !massive neutrino density
+real(dl) omnuh2
+!Dimensionless Hubble^2
+real (dl) hsq,hnot
+
+hnot = HZERO/100.d0
+hsq=hnot**2.0d0
+call Nu_init
+grhom = 3.0d0*(hsq*1.d10)/(c**2.0d0) 
+grhog = ((kappa/(c**2.0d0)*4.0d0*sigma_boltz)/(c**3.0d0))*(COBE_CMBTemp**4.0d0)*(Mpc**2.0d0) 
+grhor = (7.0d0/8.0d0)*((4.0d0/11.0d0)**(4.0d0/3.0d0))*grhog 
+! ! !calculate critical density
+rhocrit=(8.0d0*const_pi*G*1.d3/(3.0d0*((1.d7/(MPC_in_sec*c*1.d2))**(2.0d0))))**(-1.0d0)
+! 
+! print*,hnot,hsq
+! print*,c,sigma_boltz,COBE_CMBTemp,Mpc,const_pi,G,MPC_in_sec,kappa,sigma_boltz
+! print*,grhom,grhog,grhor
+! print*,rhocrit
+
+omegah2_rad=((COBE_CMBTemp**4.0d0)/(rhocrit))/(c**2.0d0)
+omegah2_rad=omegah2_rad*a_rad*1.d1/(1.d4)
+! !calculate omega rad using starndard formula
+! !Contribution of photons and massless neutrinos to H/(100 km /s/Mpc)
+lhsqcont_massless=(Num_Nu_massless*grhor*(c**2.0d0)/((1.d5**2.0d0)))/3.0d0
+! 
+zeta3=1.2020569031595942853997d0
+
+omegah2_rad=omegah2_rad+lhsqcont_massless
+! !print*, 'hi renee', Params%omegah2_rad
+! !const from modules.f90
+nu_constant=(7.0d0/120.0d0)*(const_pi**4.0d0)/(zeta3*1.5d0)
+nu_constant=nu_constant*omnuh2*(grhom/grhor)/hsq
+!print*,nu_constant
+!Compute neutrino masses corresponding to input mass fractions and degeneracies
+Nu_masses=nu_constant*Nu_mass_fractions/(Nu_mass_degeneracies)
+!Compute contribution of massive neutrinos to Hubble parameter/100 km/s/Mpc
+lhsqcont_massive=Nu_mass_degeneracies*(grhor*(c**2.0d0)/((1.d5**2.0d0)))/3.0d0
+!Print some useful checks for neutrinos
+call Nu_rho(Nu_Masses,rhonu)
+!print*,Nu_masses,omegah2_rad+lhsqcont_massive*rhonu
+conv = k_B*(8.0d0*grhor/grhog/7.0d0)**0.25d0*COBE_CMBTemp/eV * &
+   &(Nu_mass_degeneracies/dble(Nu_Mass_numbers))**0.25d0!
+!	call Nu_rho(1.0d0,rhonu)
+!	print*,Nu_masses(k)*conv
+
+
+
 
 Omegam0 = Omegam0input
 Omegar0 = Omegar0input
@@ -1743,7 +1813,7 @@ end function dchitp
             qnu=qnu/rhonu
             clxnu = clxnu/rhonu
             pinu=pinu/rhonu
-            adotoa = 1/(a*dtauda(a))
+            adotoa = 1/(a*dtauda(a,CP%H0))
             rhonudot = Nu_drho(a*nu_masses(nu_i),adotoa,rhonu)
 
             call Nu_pinudot(EV,y, yprime, a,adotoa, nu_i,pinudot)
@@ -2259,7 +2329,7 @@ end function dchitp
     else
         !  Use the tight-coupling approximation
         a =yt(1)
-        adotoa = 1/(a*dtauda(a))
+        adotoa = 1/(a*dtauda(a,CP%H0))
         pigdot=32._dl/45._dl*k/opacity*(2._dl*adotoa*shear+ytprime(3))
         pig = 32._dl/45._dl*k/opacity*shear
         pol=0

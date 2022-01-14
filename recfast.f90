@@ -492,12 +492,12 @@
     !       ===============================================================
 
     if (Last_OmB==OmegaB .and. Last_H0 == h0inp .and. yp == Last_YHe .and. &
-        dtauda(0.2352375823_dl) == Last_dtauda .and. last_fudge == Recomb%RECFAST_fudge &
+        dtauda(0.2352375823_dl,h0inp) == Last_dtauda .and. last_fudge == Recomb%RECFAST_fudge &
         .and. last_fudgeHe==Recomb%RECFAST_fudge_He) return
     !This takes up most of the single thread time, so cache if at all possible
     !For example if called with different reionization, or tensor rather than scalar
 
-    Last_dtauda =  dtauda(0.2352375823_dl) !Just get it at a random scale factor
+    Last_dtauda =  dtauda(0.2352375823_dl,h0inp) !Just get it at a random scale factor
     Last_OmB = OmegaB
     Last_H0 = h0inp
     Last_YHe=yp
@@ -582,7 +582,7 @@
     y(4) = Tmat
     Tspin = Tmat
 
-    call get_init(z,x_H0,x_He0,x0)
+    call get_init(z,x_H0,x_He0,x0,h0inp)
 
     y(1) = x_H0
     y(2) = x_He0
@@ -693,7 +693,7 @@
                 Tspin = y(4)
             else
                 C10 = Nnow * (1._dl+zend)**3*(kappa_HH_21cm(Tmat,.false.)*(1-x_H) + kappa_eH_21cm(Tmat,.false.)*x)
-                tau_21Ts = line21_const*NNow*(1+zend)*dtauda(1/(1+zend))/1000
+                tau_21Ts = line21_const*NNow*(1+zend)*dtauda(1/(1+zend),h0inp)/1000
 
                 Tspin = Trad*( C10/Trad + A10/T_21cm)/(C10/Tmat + A10/T_21cm) + &
                     tau_21Ts/2*A10*( 1/(C10*T_21cm/Tmat+A10) -  1/(C10*T_21cm/Trad+A10) )
@@ -722,7 +722,7 @@
     end subroutine Recombination_init
 
     !       ===============================================================
-    subroutine GET_INIT(z,x_H0,x_He0,x0)
+    subroutine GET_INIT(z,x_H0,x_He0,x0,h0inp)
 
     !       Set up the initial conditions so it will work for general,
     !       but not pathological choices of zstart
@@ -731,7 +731,7 @@
     implicit none
 
 
-    real(dl) z,x0,rhs,x_H0,x_He0
+    real(dl) z,x0,rhs,x_H0,x_He0,h0inp
 
 
     if(z > 8000._dl)then
@@ -775,14 +775,14 @@
 
 
 
-    subroutine ION(Recomb,Ndim,z,Y,f)
+    subroutine ION(Recomb,Ndim,z,Y,f,h0inp)
     use RECDATA
     implicit none
 
     integer Ndim
     Type (RecombinationParams) :: Recomb
 
-    real(dl) z,x,n,n_He,Trad,Tmat,Tspin,x_H,x_He, Hz
+    real(dl) z,x,n,n_He,Trad,Tmat,Tspin,x_H,x_He, Hz,h0inp
     real(dl) y(Ndim),f(Ndim)
     real(dl) Rup,Rdown,K,K_He,Rup_He,Rdown_He,He_Boltz
     real(dl) timeTh,timeH
@@ -825,7 +825,7 @@
     n_He = fHe * Nnow * (1._dl+z)**3
     Trad = Tnow * (1._dl+z)
 
-    Hz = 1/dtauda(1/(1._dl+z))*(1._dl+z)**2/MPC_in_sec
+    Hz = 1/dtauda(1/(1._dl+z),h0inp)*(1._dl+z)**2/MPC_in_sec
 
 
     !       Get the radiative rates using PPQ fit, identical to Hummer's table
@@ -1012,7 +1012,7 @@
 
 
 
-    function dDeltaxe_dtau(a, Delta_xe,Delta_nH, Delta_Tm, hdot, kvb)
+    function dDeltaxe_dtau(a, Delta_xe,Delta_nH, Delta_Tm, hdot, kvb,h0inp)
     !d x_e/d tau assuming Helium all neutral and temperature perturbations negligible
     !it is not accurate for x_e of order 1
     use RECDATA
@@ -1024,7 +1024,7 @@
     real(dl) Rup,Rdown,K
     real(dl) a_PPB,b_PPB,c_PPB,d_PPB
     real(dl) delta_alpha, delta_beta, delta_K, clh
-    real(dl) dtauda
+    real(dl) dtauda,h0inp
     external dtauda
 
 
@@ -1044,7 +1044,7 @@
     n = Nnow /a**3
     n_He = fHe * n
     Trad = Tnow /a
-    clh = 1/dtauda(a)/a !conformal time
+    clh = 1/dtauda(a,h0inp)/a !conformal time
     Hz = clh/a/MPC_in_sec !normal time in seconds
 
     Tmat = Recombination_tm(a)
