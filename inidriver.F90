@@ -25,10 +25,12 @@
         InputFile, ScalarFileName, TensorFileName, TotalFileName, LensedFileName,&
         LensedTotFileName, LensPotentialFileName,ScalarCovFileName
     integer i,freeze_field
+    real(dl) HZERO,Num_Nu_massless,Nu_mass_eigenstates,Nu_mass_fractions,Nu_mass_degeneracies,Nu_Mass_numbers
     common /control/ freeze_field
+    common /nfix/ omnuh2,HZERO,Num_Nu_massless,Nu_mass_eigenstates,Nu_mass_fractions,Nu_mass_degeneracies,Nu_Mass_numbers
     character(LEN=Ini_max_string_len) TransferFileNames(max_transfer_redshifts), &
         MatterPowerFileNames(max_transfer_redshifts), outroot, version_check
-    real(dl) output_factor, nmassive
+    real(dl) output_factor, nmassive,omnuh2
 
 #ifdef WRITE_FITS
     character(LEN=Ini_max_string_len) FITSfilename
@@ -111,6 +113,7 @@
     myparameter6 = Ini_Read_Double('myparameter6')
     freeze_field = Ini_Read_Int('freeze_field')
     P%h0     = Ini_Read_Double('hubble')
+    HZERO=P%h0
 
     if (Ini_Read_Logical('use_physical',.false.)) then
         P%omegab = Ini_Read_Double('ombh2')/(P%H0/100)**2
@@ -334,6 +337,12 @@
 #ifdef RUNIDLE
     call SetIdle
 #endif
+    Num_Nu_massless=P%Num_Nu_massless
+    Nu_mass_eigenstates=P%Nu_mass_eigenstates
+    Nu_mass_fractions=P%Nu_mass_fractions(1)
+    Nu_mass_degeneracies=P%Nu_mass_degeneracies(1)
+    Nu_Mass_numbers=P%Nu_Mass_numbers(1)
+    omnuh2=P%omegan*(P%H0/100)**2
 
     if (global_error_flag==0) call CAMB_GetResults(P)
     if (global_error_flag/=0) then
