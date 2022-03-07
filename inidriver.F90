@@ -246,6 +246,7 @@
             ScalarCovFileName = concat(outroot,ScalarCovFileName)
         end if
     end if
+
     if (P%WantTensors) then
         TensorFileName =  trim(outroot) //Ini_Read_String('tensor_output_file')
         if (P%WantScalars)  then
@@ -336,6 +337,8 @@
 #endif
 
     if (global_error_flag==0) call CAMB_GetResults(P)
+   ! print*,'hello',P%WantCls,global_error_flag
+
     if (global_error_flag/=0) then
         write(*,*) 'Error result '//trim(global_error_message)
         error stop
@@ -348,6 +351,7 @@
     end if
 
     if (P%WantCls) then
+
         call output_cl_files(ScalarFileName, ScalarCovFileName, TensorFileName, TotalFileName, &
             LensedFileName, LensedTotFilename, output_factor)
 
