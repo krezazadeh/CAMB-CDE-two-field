@@ -364,12 +364,13 @@ real(16) :: dNe
 integer freeze_field
 common /control/ freeze_field
 real(dl) HZERO
-real(dl) Num_Nu_massless,Nu_mass_fractions,Nu_mass_degeneracies,Nu_masses,lhsqcont_massive
+real(dl) Num_Nu_massless,Nu_mass_fractions,Nu_mass_degeneracies,Nu_masses
 real(dl) Nu_Mass_numbers
 integer Nu_mass_eigenstates
 
 common /nfix/ omnuh2, HZERO,Num_Nu_massless,Nu_mass_fractions,Nu_mass_degeneracies,Nu_Mass_numbers
-
+common /npass/ omegah2_rad, lhsqcont_massive
+common /nf/ Nfeed
 ! real(16) :: Nei,Hti,phiti,chiti,phitpi,chitpi
 ! real(16) :: Neim1,Htim1,phitim1,chitim1,phitpim1,chitpim1
 ! real(16) :: dHt,dphit,dchit,dphitp,dchitp
@@ -381,7 +382,7 @@ common /nfix/ omnuh2, HZERO,Num_Nu_massless,Nu_mass_fractions,Nu_mass_degeneraci
 ! real(16) :: Netemp,Httemp,phittemp,chittemp,phitptemp,chitptemp
 
 real(16) :: Nei,Hti,phiti,chiti,phitpi,chitpi
-real(16) :: Neim1,Htim1,phitim1,chitim1,phitpim1,chitpim1
+real(16) :: Neim1,Htim1,phitim1,chitim1,phitpim1,chitpim1,Nefeed
 real(16) :: dHt,dphit,dchit,dphitp,dchitp
 real(16) :: stepHt1,stepHt2,stepHt3,stepHt4
 real(16) :: stepphi1,stepphi2,stepphi3,stepphi4
@@ -389,7 +390,7 @@ real(16) :: stepchi1,stepchi2,stepchi3,stepchi4
 real(16) :: stepphip1,stepphip2,stepphip3,stepphip4
 real(16) :: stepchip1,stepchip2,stepchip3,stepchip4,kfeed
 real(16) :: Hfeed,phifeed,chifeed,phipfeed,chipfeed
-
+real(16)::dHt_val
 real(16) cmat(1:10,1:10),kv(1:10),sv(1:10)
 real(16) stepHt(10),stepphi(10),stepchi(10), stepphip(10), stepchip(10)
 
@@ -406,13 +407,14 @@ real(dl) lhsqcont_massless
 real(dl) zeta3, conv
 !Correction factor from massless to massive neutrino energy densities, constant to go from massive neutrino
 !mass fractions to massive neutrino massive values
-real(dl)  rhonu,nu_constant,grhom,grhog,grhor,rhocrit,omegah2_rad
+real(dl)  rhonu,nu_constant,grhom,grhog,grhor,rhocrit
+real(16) omegah2_rad,lhsqcont_massive,Nfeed
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! non-trivial aspects to sharing neutrino data structures in new subroutines of CAMB
 ! so we recompute somethings twice, but these are single numbers
 ! should not be a significant slow down
  !massive neutrino density
-real(dl) omnuh2
+real(dl) omnuh2,gcont
 !Dimensionless Hubble^2
 real (dl) hsq,hnot
 
@@ -437,25 +439,31 @@ omegah2_rad=omegah2_rad*a_rad*1.d1/(1.d4)
 lhsqcont_massless=(Num_Nu_massless*grhor*(c**2.0d0)/((1.d5**2.0d0)))/3.0d0
 ! 
 zeta3=1.2020569031595942853997d0
-
-omegah2_rad=omegah2_rad+lhsqcont_massless
+gcont=omegah2_rad
+omegah2_rad=omegah2_rad
+!print*,omegah2_rad
+!+lhsqcont_massless
 ! !print*, 'hi renee', Params%omegah2_rad
 ! !const from modules.f90
 nu_constant=(7.0d0/120.0d0)*(const_pi**4.0d0)/(zeta3*1.5d0)
 nu_constant=nu_constant*omnuh2*(grhom/grhor)/hsq
 !print*,nu_constant
-!Compute neutrino masses corresponding to input mass fractions and degeneracies
+! !Compute neutrino masses corresponding to input mass fractions and degeneracies
 Nu_masses=nu_constant*Nu_mass_fractions/(Nu_mass_degeneracies)
-!Compute contribution of massive neutrinos to Hubble parameter/100 km/s/Mpc
+! !Compute contribution of massive neutrinos to Hubble parameter/100 km/s/Mpc
 lhsqcont_massive=Nu_mass_degeneracies*(grhor*(c**2.0d0)/((1.d5**2.0d0)))/3.0d0
-!Print some useful checks for neutrinos
-call Nu_rho(Nu_Masses,rhonu)
-!print*,Nu_masses,omegah2_rad+lhsqcont_massive*rhonu
-conv = k_B*(8.0d0*grhor/grhog/7.0d0)**0.25d0*COBE_CMBTemp/eV * &
-   &(Nu_mass_degeneracies/dble(Nu_Mass_numbers))**0.25d0!
-!	call Nu_rho(1.0d0,rhonu)
-!	print*,Nu_masses(k)*conv
-
+! !Print some useful checks for neutrinos
+if (Nu_masses >0) then
+    call Nu_rho(Nu_Masses,rhonu)
+else 
+    rhonu=1.e0
+endif
+! !print*,Nu_masses,omegah2_rad+lhsqcont_massive*rhonu
+! conv = k_B*(8.0d0*grhor/grhog/7.0d0)**0.25d0*COBE_CMBTemp/eV * &
+!    &(Nu_mass_degeneracies/dble(Nu_Mass_numbers))**0.25d0!
+! !	call Nu_rho(1.0d0,rhonu)
+! !	print*,Nu_masses(k)*conv
+!print*,gcont/(omegah2_rad+lhsqcont_massive*rhonu),lhsqcont_massless/(omegah2_rad+lhsqcont_massive*rhonu),lhsqcont_massive*rhonu/(omegah2_rad+lhsqcont_massive*rhonu)
 
 
 
@@ -484,7 +492,7 @@ chitinitialflag = chitinitial
 
 aitoa0approx = 1.0q-5
 Ne0approx = -log(aitoa0approx)
-
+Nfeed=Ne0approx
 rhomtinitial = 3.0q0*Omegam0*aitoa0approx**(-3.0q0)
 rhortinitial = 3.0q0*Omegar0*aitoa0approx**(-4.0q0)
 
@@ -712,7 +720,7 @@ if (freeze_field .eq. 0) then
 phifeed=phitim1+dot_product(cmat(m,1:m),stepphi(1:m))
 phipfeed=phitpim1+dot_product(cmat(m,1:m),stepphip(1:m))
 stepphi(m) = dNe*dphit(kfeed,Hfeed, phifeed,chifeed,phipfeed,chipfeed)
-stepphip(m) = dNe*dphitp(kfeed,Hfeed, phifeed,chifeed,phipfeed,chipfeed)
+stepphip(m) = dNe*dphitp(kfeed,Hfeed, dHt_val,phifeed,chifeed,phipfeed,chipfeed)
 else
 phifeed=phitim1
 phipfeed=0
@@ -722,9 +730,10 @@ endif
 
 chifeed=chitim1+dot_product(cmat(m,1:m),stepchi(1:m))
 chipfeed=chitpim1+dot_product(cmat(m,1:m),stepchip(1:m))
-stepHt(m) = dNe*dHt(kfeed,Hfeed, phifeed,chifeed,phipfeed,chipfeed)
+dHt_val=dHt(kfeed,Hfeed, phifeed,chifeed,phipfeed,chipfeed,omegah2_rad,lhsqcont_massive,Nu_masses)
+stepHt(m) = dNe*dHt_val
 stepchi(m) = dNe*dchit(kfeed,Hfeed, phifeed,chifeed,phipfeed,chipfeed)
-stepchip(m) = dNe*dchitp(kfeed,Hfeed, phifeed,chifeed,phipfeed,chipfeed)
+stepchip(m) = dNe*dchitp(kfeed,Hfeed, dHt_val,phifeed,chifeed,phipfeed,chipfeed)
 enddo
 
 Nei = Neim1 + dNe
@@ -754,9 +763,11 @@ arrayHt(i) = Hti
 end do
 
 imax = i
-
 Ne0 = Nei
-
+if (Ne0 .gt. 0) then
+Nfeed=Ne0
+endif
+!print*,Nfeed
 ! arrayHt(imax) = 1.0q0
 
 phit0 = phiti
@@ -847,28 +858,62 @@ end function Hta2
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-function dHt(Ne,Ht,phit,chit,phitp,chitp)
+function dHt(Ne,Ht,phit,chit,phitp,chitp,omegah2_rad,lhsqcont_massive,Nu_masses)
 
+use constants
+use MassiveNu
     implicit none
 
     real(16) :: Ne,Ht,phit,chit,phitp,chitp
     real(16) :: dHt
-
     real(16) :: Omegam0,Omegar0,lambdachit,phitinitial,chitinitial
     common /inputparametersofHta2/ Omegam0,Omegar0,lambdachit, &
             & phitinitial,chitinitial
 
     real(16) :: lambdaphit
     common /lambdaphit/ lambdaphit
+    
+    real(16) :: rhomtinitial, rhortinitial,Nfeed
+    common /nf/ Nfeed
 
-    real(16) :: rhomtinitial, rhortinitial
     common /rhotinitial/ rhomtinitial, rhortinitial
+    real(16) :: omegah2_rad,lhsqcont_massive
+    real(16):: cfac1,cfac2,rfix1,rfix2,rn,fp,rn_plus,eps
+    real(dl)::Nu_masses,sf,rhonu,rhonu_plus,sfp
+    sf=exp(Ne-Nfeed)
+    eps=1.q-5
+    sfp=exp(Ne+eps-Nfeed)
+    call Nu_rho(Nu_masses*sf,rhonu)
+    call Nu_rho(Nu_masses*sfp,rhonu_plus)
+   ! fp=(rhonu_plus-rhonu)/(eps*Ne)
+ !   print*,rhonu
+    rn=rhonu
+    rn_plus=rhonu_plus
+    fp=(rn_plus-rn)/(eps)
+   ! print*,fp
 
-    dHt = (-3.0q0*exp(Ne)*rhomtinitial - 4.0q0*rhortinitial - &
+   
+ !   print*,'line',rn,rn_plus,fp,Ht
+    print*,rn
+    ! rn=1.q0
+   ! fp=0.q0
+    !print*,omegah2_rad,lhsqcont_massive
+    cfac1=omegah2_rad/(omegah2_rad+lhsqcont_massive)
+    cfac2=lhsqcont_massive/(omegah2_rad+lhsqcont_massive)
+    rfix1=rhortinitial*cfac1
+    rfix2=rhortinitial*cfac2
+!    print*,rhortinitial,rfix
+    dHt = (-3.0q0*exp(Ne)*rhomtinitial - 4.0q0*rfix1 - 4.0q0*rfix2*rn+rfix2*fp- &
              &    3.0q0*exp(4.0q0*Ne)*Ht**2.0q0* &
              &     (phitp**2.0q0 + chitp**2.0q0))/ &
              &  (6.0q0*exp(4.0q0*Ne)*Ht)
-
+             
+        
+             
+    print*,rhortinitial,rhortinitial*cfac1+rhortinitial*cfac2
+  print*,'Ht',Ht
+   !,cfac1+cfac2
+    !print*,cfac1,cfac2
 end function dHt
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -899,7 +944,7 @@ end function dchit
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-function dphitp(Ne,Ht,phit,chit,phitp,chitp)
+function dphitp(Ne,Ht,dHt_val,phit,chit,phitp,chitp)
 
     implicit none
 
@@ -911,6 +956,7 @@ function dphitp(Ne,Ht,phit,chit,phitp,chitp)
             & phitinitial,chitinitial
 
     real(16) :: lambdaphit
+    real(16)::dHt_val
     common /lambdaphit/ lambdaphit
 
     real(16) :: rhomtinitial, rhortinitial
@@ -921,17 +967,22 @@ function dphitp(Ne,Ht,phit,chit,phitp,chitp)
              &         3.0q0*exp(4.0q0*Ne)*Ht**2.0q0* &
              &          (-6.0q0 + phitp**2.0q0 + chitp**2.0q0)))/ &
              &     exp(4.0q0*Ne))/(6.0q0*Ht**2.0q0)
+    !print*,dphitp
+    !print*,Ht
+
+    dphitp=(-(Ht*(3.q0*Ht+dHt_val)*phitp+lambdaphit*(phit**3.q0))/(Ht**2.q0))
+   ! print*,Ht
 
 end function dphitp
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-function dchitp(Ne,Ht,phit,chit,phitp,chitp)
+function dchitp(Ne,Ht,dHt_val,phit,chit,phitp,chitp)
 
     implicit none
 
     real(16) :: Ne,Ht,phit,chit,phitp,chitp
-    real(16) :: dchitp
+    real(16) :: dchitp,dHt_val
 
     real(16) :: Omegam0,Omegar0,lambdachit,phitinitial,chitinitial
     common /inputparametersofHta2/ Omegam0,Omegar0,lambdachit, &
@@ -948,7 +999,9 @@ function dchitp(Ne,Ht,phit,chit,phitp,chitp)
              &         3.0q0*exp(4.0q0*Ne)*Ht**2.0q0* &
              &          (-6.0q0 + phitp**2.0q0 + chitp**2.0q0)))/ &
              &     exp(4.0q0*Ne))/(6.0q0*Ht**2.0q0)
-
+  !  print*,dchitp
+   dchitp=-(Ht*(3.q0*Ht+dHt_val)*chitp+lambdachit*(chit**3.q0))/(Ht**2.q0)
+   ! print*,dchitp
 end function dchitp
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
