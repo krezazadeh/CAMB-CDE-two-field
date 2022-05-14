@@ -1,4 +1,4 @@
-! equations_ppf-RK8-KR-final.f90
+! equations_ppf-KR-2.f90
 
     ! Equations module for dark energy with constant equation of state parameter w
     ! allowing for perturbations based on a quintessence model
@@ -228,38 +228,12 @@ use LambdaGeneral
 implicit none
 real(dl) dtauda
 real(dl), intent(IN) :: a
-real(dl) rhonu,grhoa2,a2
-integer nu_i
-
-real(dl) :: grhov_t
 
 real(16) :: Omegam0,Omegar0,lambdachit,phitinitial,chitinitial
 
-real(16) :: Hta2LCDM,Hta2
-
 real(dl) :: H0inMpcinsec
 
-real(dl) :: Hta2LCDM1,Hta2LCDM2,Ha2LCDM1,Ha2LCDM2
-
-real(16) :: Hta2LCDMvalue,Hta2value,Ha2
-
-a2=a**2
-
-!  8*pi*G*rho*a**4.
-grhoa2=grhok*a2+(grhoc+grhob)*a+grhog+grhornomass
-if (is_cosmological_constant) then
-    grhoa2=grhoa2+grhov*a2**2
-else
-    grhoa2=grhoa2+ grho_de(a)
-end if
-
-if (CP%Num_Nu_massive /= 0) then
-    !Get massive neutrino density relative to massless
-    do nu_i = 1, CP%nu_mass_eigenstates
-        call Nu_rho(a*nu_masses(nu_i),rhonu)
-        grhoa2=grhoa2+rhonu*grhormass(nu_i)
-    end do
-end if
+real(16) :: Hta2, Ha2
 
 H0inMpcinsec = (CP%H0)*1.0d3/c
 
@@ -271,21 +245,7 @@ chitinitial = real(myparameter2,16)
 ! lambdaphit = real(10.0d0**myparameter3,16)
 lambdachit = real(10.0d0**myparameter4,16)
 
-Ha2LCDM1 = sqrt(grhoa2/3.0d0)
-
-Hta2LCDM1 = Ha2LCDM1/H0inMpcinsec
-
-Hta2LCDMvalue = Hta2LCDM(real(a,16), Omegam0, Omegar0)
-
-Hta2LCDM2 = Hta2LCDMvalue
-
-!! Ha2LCDM2 = H0inMpcinsec*Hta2LCDM2
-
-Hta2value = Hta2(real(a,16), Omegam0, Omegar0, lambdachit, phitinitial, chitinitial)
-
-! Ha2 = Ha2LCDM1
-! Ha2 = H0inMpcinsec*Hta2value
-Ha2 = (Hta2value/Hta2LCDMvalue)*Ha2LCDM1
+Ha2 = H0inMpcinsec*Hta2(real(a,16), Omegam0, Omegar0, lambdachit, phitinitial, chitinitial)
 
 dtauda = real(1.0q0/Ha2, 8)
 
