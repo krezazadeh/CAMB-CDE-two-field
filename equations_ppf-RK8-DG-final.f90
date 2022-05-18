@@ -233,7 +233,7 @@ integer nu_i
 
 real(dl) :: grhov_t
 
-real(16) :: Omegam0,Omegar0,lambdachit,phitinitial,chitinitial
+real(16) :: Omegam0,Omegar0,lambdachit,lambdazit,phitinitial,chitinitial,zitinitial
 
 real(16) :: Hta2LCDM,Hta2
 
@@ -270,6 +270,9 @@ phitinitial = real(10.0d0**myparameter1,16)
 chitinitial = real(myparameter2,16)
 ! lambdaphit = real(10.0d0**myparameter3,16)
 lambdachit = real(10.0d0**myparameter4,16)
+zitinitial=real(myparameter5,16)
+lambdazit=real(10.0d0**myparameter6,16)
+
 
 Ha2LCDM1 = sqrt(grhoa2/3.0d0)
 
@@ -281,7 +284,7 @@ Hta2LCDM2 = Hta2LCDMvalue
 
 !! Ha2LCDM2 = H0inMpcinsec*Hta2LCDM2
 
-Hta2value = Hta2(real(a,16), Omegam0, Omegar0, lambdachit, phitinitial, chitinitial)
+Hta2value = Hta2(real(a,16), Omegam0, Omegar0, lambdachit, lambdazit,phitinitial, chitinitial,zitinitial)
 
 ! Ha2 = Ha2LCDM1
 ! Ha2 = H0inMpcinsec*Hta2value
@@ -314,16 +317,16 @@ end function Hta2LCDM
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 function Hta2(ainput,Omegam0input,Omegar0input, &
-     & lambdachitinput,phitinitialinput,chitinitialinput)
+     & lambdachitinput,lambdazitinput,phitinitialinput,chitinitialinput,zitinitialinput)
 
 implicit none
 
 real(16) :: ainput,Omegam0input,Omegar0input, &
-            &   lambdachitinput,phitinitialinput,chitinitialinput
+            &   lambdachitinput,lambdazitinput,phitinitialinput,chitinitialinput,zitinitialinput
 real(16) :: Hta2
 
-real(16) :: Omegam0,Omegar0,lambdachit,phitinitial,chitinitial
-common /inputparametersofHta2/ Omegam0,Omegar0,lambdachit,phitinitial,chitinitial
+real(16) :: Omegam0,Omegar0,lambdachit,lambdazit,phitinitial,chitinitial,zitinitial
+common /inputparametersofHta2/ Omegam0,Omegar0,lambdachit,lambdazit,phitinitial,chitinitial,zitinitial
 
 real(16) :: lambdaphit
 common /lambdaphit/ lambdaphit
@@ -335,28 +338,28 @@ common /rhotinitial/ rhomtinitial, rhortinitial
 
 real(16), dimension(100000) :: arrayNe
 
-real(16), dimension(100000) :: arraya,arrayHt
-common /arrays/ arraya,arrayHt
+! real(16), dimension(100000) :: arraya,arrayHt
+! common /arrays/ arraya,arrayHt
 
 ! store background
-! real(16), dimension(100000) :: arraya,arrayHt,arrayphit,arraychit,arrayphitp,arraychitp
-! common /arrays/ arraya,arrayHt,arrayphit,arraychit,arrayphitp,arraychitp
+real(16), dimension(100000) :: arraya,arrayHt,arrayphit,arraychit,arrayphitp,arraychitp
+common /arrays/ arraya,arrayHt,arrayphit,arraychit,arrayphitp,arraychitp
 
 integer :: imax
 common /arrayindex/ imax
 
-real(16) :: Omegam0flag,Omegar0flag,lambdachitflag,phitinitialflag, &
-            & chitinitialflag
-common /flags/ Omegam0flag,Omegar0flag,lambdachitflag,phitinitialflag, &
-            & chitinitialflag
+real(16) :: Omegam0flag,Omegar0flag,lambdachitflag,lambdazitflag,phitinitialflag, &
+            & chitinitialflag,zitinitialflag
+common /flags/ Omegam0flag,Omegar0flag,lambdachitflag,lambdazitflag,phitinitialflag, &
+            & chitinitialflag,zitinitialflag
 
 integer :: i
 
-real(16) :: Neinitial,Htinitial,phitpinitial,chitpinitial
+real(16) :: Neinitial,Htinitial,phitpinitial,chitpinitial,zitpinitial
 real(16) :: aitoa0approx,Ne0approx
 real(16) :: Ne0
 
-real(16) :: phit0,chit0,phitp0,chitp0
+real(16) :: phit0,chit0,zit0,phitp0,chitp0,zitp0
 
 real(16) :: dNe
 integer freeze_field
@@ -372,18 +375,24 @@ common /control/ freeze_field
 ! real(16) :: k0501,k0502,k0503,k0504,k0505,k0506,k0507,k0508,k0509,k0510
 ! real(16) :: Netemp,Httemp,phittemp,chittemp,phitptemp,chitptemp
 
-real(16) :: Nei,Hti,phiti,chiti,phitpi,chitpi
-real(16) :: Neim1,Htim1,phitim1,chitim1,phitpim1,chitpim1
-real(16) :: dHt,dphit,dchit,dphitp,dchitp
+real(16) :: Nei,Hti,phiti,chiti,ziti,phitpi,chitp,zitpi
+real(16) :: Neim1,Htim1,phitim1,chitim1,zitim1,phitpim1,chitpim1,zitpim1,chitpi
+real(16) :: dHt,dphit,dchit,dzit,dphitp,dchitp,dzitp
 real(16) :: stepHt1,stepHt2,stepHt3,stepHt4
 real(16) :: stepphi1,stepphi2,stepphi3,stepphi4
 real(16) :: stepchi1,stepchi2,stepchi3,stepchi4
+real(16) :: stepzi1,stepzi2,stepzi3,stepzi4
+
 real(16) :: stepphip1,stepphip2,stepphip3,stepphip4
 real(16) :: stepchip1,stepchip2,stepchip3,stepchip4,kfeed
-real(16) :: Hfeed,phifeed,chifeed,phipfeed,chipfeed
+real(16) :: stepzip1,stepzip2,stepzip3,stepzip4
+
+real(16) :: Hfeed,phifeed,chifeed,zifeed,phipfeed,chipfeed,zipfeed
 
 real(16) cmat(1:10,1:10),kv(1:10),sv(1:10)
 real(16) stepHt(10),stepphi(10),stepchi(10), stepphip(10), stepchip(10)
+real(16) stepzi(10),stepzip(10)
+
 
 integer :: m
 
@@ -392,19 +401,25 @@ integer :: leftpoint,rightpoint,midpoint
 Omegam0 = Omegam0input
 Omegar0 = Omegar0input
 lambdachit = lambdachitinput
+lambdazit=lambdazitinput
+
 phitinitial = phitinitialinput
 chitinitial = chitinitialinput
+zitinitial=zitinitialinput
 
 if ((Omegam0 == Omegam0flag) .and. (Omegar0 == Omegar0flag) .and. &
-    & (lambdachit == lambdachitflag) .and. (phitinitial == phitinitialflag) .and. (chitinitial == chitinitialflag)) then
+    & (lambdachit == lambdachitflag) .and. (phitinitial == phitinitialflag) .and. (chitinitial == chitinitialflag) .and. (lambdazit == lambdazitflag) .and. (zitinitial == zitinitialflag)) then
     goto 110
 end if
 
 Omegam0flag = Omegam0
 Omegar0flag = Omegar0
 lambdachitflag = lambdachit
+lambdazitflag = lambdazit
+
 phitinitialflag = phitinitial
 chitinitialflag = chitinitial
+zitinitialflag = zitinitial
 
 ! write(*,*) "Omegam0 = ", Omegam0
 ! write(*,*) "Omegar0 = ", Omegar0
@@ -434,13 +449,13 @@ lambdaphit = 12.0q0*(1.0q0 - Omegam0 - Omegar0)/phitinitial**4
 
 ! write(*,*) "lambdaphit = ", lambdaphit
 ! write(*,*) "deltalambdaphit = ", abs((lambdaphit - lambdaphitold)/lambdaphit)
-
 do while (abs((lambdaphit - lambdaphitold)/lambdaphit) >= 1.0q-3)
 
 phitpinitial = (-4.0q0*lambdaphit*phitinitial**3.0q0)/ &
                  &  ((4.0q0*rhomtinitial)/exp(3.0q0*Neinitial) + (4.0q0*rhortinitial)/ &
                  & exp(4.0q0*Neinitial) + &
-                 &    lambdaphit*phitinitial**4.0q0 + lambdachit*chitinitial**4.0q0)
+                 &    lambdaphit*phitinitial**4.0q0 + lambdachit*chitinitial**4.0q0&
+                 &+lambdazit*zitinitial**4.0q0)
 
 if (freeze_field .eq. 1) then
     phitpinitial=0.0q0
@@ -449,12 +464,20 @@ endif
 chitpinitial = (-4.0q0*lambdachit*chitinitial**3.0q0)/ &
     &  ((4.0q0*rhomtinitial)/exp(3.0q0*Neinitial) + (4.0q0*rhortinitial)/ &
     & exp(4.0q0*Neinitial) + &
-    &    lambdaphit*phitinitial**4.0q0 + lambdachit*chitinitial**4.0q0)
+    &    lambdaphit*phitinitial**4.0q0 + lambdachit*chitinitial**4.0q0&
+                 &+lambdazit*zitinitial**4.0q0)
 
+zitpinitial = (-4.0q0*lambdazit*zitinitial**3.0q0)/ &
+    &  ((4.0q0*rhomtinitial)/exp(3.0q0*Neinitial) + (4.0q0*rhortinitial)/ &
+    & exp(4.0q0*Neinitial) + &
+    &    lambdaphit*phitinitial**4.0q0 + lambdachit*chitinitial**4.0q0&
+                 &+lambdazit*zitinitial**4.0q0)
+                 
 Htinitial = ((-(((4.0q0*(exp(Neinitial)*rhomtinitial + &
     &    rhortinitial))/exp(4.0q0*Neinitial) + &
-    &        lambdaphit*phitinitial**4.0q0 + lambdachit*chitinitial**4.0q0)/ &
-    &      (-6.0q0 + phitpinitial**2.0q0 + chitpinitial**2.0q0)))/(2.0q0))**(0.5q0)
+    & lambdaphit*phitinitial**4.0q0 + lambdachit*chitinitial**4.0q0&
+    &+ lambdazit*zitinitial**4.0q0)/ &
+    &      (-6.0q0 + phitpinitial**2.0q0 + chitpinitial**2.0q0+zitpinitial**2.0q0)))/(2.0q0))**(0.5q0)
 
 Neinitial = 0.0q0
 dNe = 1.0q-3
@@ -465,17 +488,18 @@ Nei = Neinitial
 Hti = Htinitial
 phiti = phitinitial
 chiti = chitinitial
+ziti=zitinitial
 phitpi = phitpinitial
 chitpi = chitpinitial
-
+zitpi=zitpinitial
 arrayNe(i) = Nei
 arrayHt(i) = Hti
 
 ! store background
-! arrayphit(i) = phiti
-! arraychit(i) = chiti
-! arrayphitp(i) = phitpi
-! arraychitp(i) = chitpi
+arrayphit(i) = phiti
+arraychit(i) = chiti
+arrayphitp(i) = phitpi
+arraychitp(i) = chitpi
 
 do while (Hti > 1.0q0)
 
@@ -483,21 +507,27 @@ Neim1 = Nei
 Htim1 = Hti
 phitim1 = phiti
 chitim1 = chiti
+zitim1=ziti
 phitpim1 = phitpi
 chitpim1 = chitpi
+zitpim1=zitpi
 
 Neim1 = Nei
 Htim1 = Hti
 phitim1 = phiti
 chitim1 = chiti
+zitim1=ziti
 phitpim1 = phitpi
 chitpim1 = chitpi
+zitpim1=zitpi
 
 stepHt=0.0q0
 stepphi=0.0q0
 stepchi=0.0q0
+stepzi=0.0q0
 stepphip=0.0q0
 stepchip=0.0q0
+stepzip=0.0q0
 
 cmat(1,1)=0.q0
 cmat(2,1)=4.q0/27.q0
@@ -641,8 +671,10 @@ Hfeed=Htim1+dot_product(cmat(m,1:m),stepHt(1:m))
 if (freeze_field .eq. 0) then
 phifeed=phitim1+dot_product(cmat(m,1:m),stepphi(1:m))
 phipfeed=phitpim1+dot_product(cmat(m,1:m),stepphip(1:m))
-stepphi(m) = dNe*dphit(kfeed,Hfeed, phifeed,chifeed,phipfeed,chipfeed)
-stepphip(m) = dNe*dphitp(kfeed,Hfeed, phifeed,chifeed,phipfeed,chipfeed)
+stepphi(m) = dNe*dphit(kfeed,Hfeed, phifeed,chifeed,zifeed,phipfeed,chipfeed,zipfeed)
+stepphip(m) = dNe*dphitp(kfeed,Hfeed, phifeed,chifeed,zifeed,phipfeed,chipfeed,zipfeed)
+
+
 else
 phifeed=phitim1
 phipfeed=0
@@ -652,9 +684,12 @@ endif
 
 chifeed=chitim1+dot_product(cmat(m,1:m),stepchi(1:m))
 chipfeed=chitpim1+dot_product(cmat(m,1:m),stepchip(1:m))
-stepHt(m) = dNe*dHt(kfeed,Hfeed, phifeed,chifeed,phipfeed,chipfeed)
-stepchi(m) = dNe*dchit(kfeed,Hfeed, phifeed,chifeed,phipfeed,chipfeed)
-stepchip(m) = dNe*dchitp(kfeed,Hfeed, phifeed,chifeed,phipfeed,chipfeed)
+stepHt(m) = dNe*dHt(kfeed,Hfeed, phifeed,chifeed,zifeed,phipfeed,chipfeed,zipfeed)
+stepchi(m) = dNe*dchit(kfeed,Hfeed, phifeed,chifeed,zifeed,phipfeed,chipfeed,zipfeed)
+stepchip(m) = dNe*dchitp(kfeed,Hfeed, phifeed,chifeed,zifeed,phipfeed,chipfeed,zipfeed)
+stepzi(m) = dNe*dzit(kfeed,Hfeed, phifeed,chifeed,zifeed,phipfeed,chipfeed,zipfeed)
+stepzip(m) = dNe*dzitp(kfeed,Hfeed, phifeed,chifeed,zifeed,phipfeed,chipfeed,zipfeed)
+
 enddo
 
 Nei = Neim1 + dNe
@@ -670,17 +705,18 @@ endif
 
 chiti = chitim1 + dot_product(sv,stepchi)
 chitpi = chitpim1 + dot_product(sv,stepchip)
+ziti = zitim1 + dot_product(sv,stepzi)
+zitpi = zitpim1 + dot_product(sv,stepzip)
 
 i = i + 1
 arrayNe(i) = Nei
 arrayHt(i) = Hti
 
 ! store background
-! arrayphit(i) = phiti
-! arraychit(i) = chiti
-! arrayphitp(i) = phitpi
-! arraychitp(i) = chitpi
-
+arrayphit(i) = phiti
+arraychit(i) = chiti
+arrayphitp(i) = phitpi
+arraychitp(i) = chitpi
 end do
 
 imax = i
@@ -698,8 +734,9 @@ phitp0 = phitpi
 chitp0 = chitpi
 ! chitp0 = 0.0q0
 lambdaphitold = lambdaphit
-
-lambdaphit = (12.0q0 - 2.0q0*phitp0**2 - lambdachit*chit0**4 - 2.0q0*chitp0**2 - 12.0q0*Omegam0 - 12.0q0*Omegar0)/phit0**4
+! 
+lambdaphit = (12.0q0 - 2.0q0*phitp0**2 - lambdachit*chit0**4 - 2.0q0*chitp0**2 - 2.0q0*zitp0**2-lambdazit*zit0**4-&
+&12.0q0*Omegam0 - 12.0q0*Omegar0)/phit0**4
 
 ! write(*,*) "lambdaphit = ", lambdaphit
 ! write(*,*) "deltalambdaphit = ", abs((lambdaphit - lambdaphitold)/lambdaphit)
@@ -734,13 +771,13 @@ do i = 1, imax
     ! & arraychit(i), arrayphitp(i), arraychitp(i)
 
 end do
-
-! store background
-! close(11)
-
+! 
+! ! store background
+! ! close(11)
+! 
 110 if (log(ainput) <= arraya(1)) then
-
-! Radiation dominated
+! 
+! ! Radiation dominated
 Hta2 = arrayHt(1)*exp(arraya(1))**2
 
 else if ((log(ainput) > arraya(1)) .and. (log(ainput) <= arraya(imax))) then
@@ -759,7 +796,7 @@ do while ((rightpoint - leftpoint) > 1)
 enddo
 i = leftpoint
 ! }
-
+! 
 Hta2 = (arrayHt(i) + ((arrayHt(i+1) - arrayHt(i))/(arraya(i+1) - arraya(i)))*(log(ainput) &
         & - arraya(i)))*ainput**2
 
@@ -777,16 +814,16 @@ end function Hta2
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-function dHt(Ne,Ht,phit,chit,phitp,chitp)
+function dHt(Ne,Ht,phit,chit,zit,phitp,chitp,zitp)
 
     implicit none
 
-    real(16) :: Ne,Ht,phit,chit,phitp,chitp
+    real(16) :: Ne,Ht,phit,chit,zit,phitp,chitp,zitp
     real(16) :: dHt
 
-    real(16) :: Omegam0,Omegar0,lambdachit,phitinitial,chitinitial
-    common /inputparametersofHta2/ Omegam0,Omegar0,lambdachit, &
-            & phitinitial,chitinitial
+    real(16) :: Omegam0,Omegar0,lambdachit,lambdazit,phitinitial,chitinitial,zitinitial
+    common /inputparametersofHta2/ Omegam0,Omegar0,lambdachit, lambdazit,&
+            & phitinitial,chitinitial,zitinitial
 
     real(16) :: lambdaphit
     common /lambdaphit/ lambdaphit
@@ -796,18 +833,18 @@ function dHt(Ne,Ht,phit,chit,phitp,chitp)
 
     dHt = (-3.0q0*exp(Ne)*rhomtinitial - 4.0q0*rhortinitial - &
              &    3.0q0*exp(4.0q0*Ne)*Ht**2.0q0* &
-             &     (phitp**2.0q0 + chitp**2.0q0))/ &
+             &     (phitp**2.0q0 + chitp**2.0q0+zitp**2.0q0))/ &
              &  (6.0q0*exp(4.0q0*Ne)*Ht)
 
 end function dHt
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-function dphit(Ne,Ht,phit,chit,phitp,chitp)
+function dphit(Ne,Ht,phit,chit,zit,phitp,chitp,zitp)
 
     implicit none
 
-    real(16) :: Ne,Ht,phit,chit,phitp,chitp
+    real(16) :: Ne,Ht,phit,chit,zit,phitp,chitp,zitp
     real(16) :: dphit
 
     dphit = phitp
@@ -816,29 +853,41 @@ end function dphit
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-function dchit(Ne,Ht,phit,chit,phitp,chitp)
+function dchit(Ne,Ht,phit,chit,zit,phitp,chitp,zitp)
 
     implicit none
 
-    real(16) :: Ne,Ht,phit,chit,phitp,chitp
+    real(16) :: Ne,Ht,phit,chit,zit,phitp,chitp,zitp
     real(16) :: dchit
 
     dchit = chitp
 
 end function dchit
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-function dphitp(Ne,Ht,phit,chit,phitp,chitp)
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+function dzit(Ne,Ht,phit,chit,zit,phitp,chitp,zitp)
 
     implicit none
 
-    real(16) :: Ne,Ht,phit,chit,phitp,chitp
+    real(16) :: Ne,Ht,phit,chit,zit,phitp,chitp,zitp
+    real(16) :: dzit
+
+    dzit = zitp
+
+end function dzit
+
+!!!!!!!!!!!!!!!!!!!!!
+
+function dphitp(Ne,Ht,phit,chit,zit,phitp,chitp,zitp)
+
+    implicit none
+
+    real(16) :: Ne,Ht,phit,chit,zit,phitp,chitp,zitp
     real(16) :: dphitp
 
-    real(16) :: Omegam0,Omegar0,lambdachit,phitinitial,chitinitial
-    common /inputparametersofHta2/ Omegam0,Omegar0,lambdachit, &
-            & phitinitial,chitinitial
+    real(16) :: Omegam0,Omegar0,lambdachit,lambdazit,phitinitial,chitinitial,zitinitial
+    common /inputparametersofHta2/ Omegam0,Omegar0,lambdachit, lambdazit,&
+            & phitinitial,chitinitial,zitinitial
 
     real(16) :: lambdaphit
     common /lambdaphit/ lambdaphit
@@ -849,23 +898,23 @@ function dphitp(Ne,Ht,phit,chit,phitp,chitp)
     dphitp = (-6.0q0*lambdaphit*phit**3.0q0 + &
              &    (phitp*(3.0q0*exp(Ne)*rhomtinitial + 4*rhortinitial + &
              &         3.0q0*exp(4.0q0*Ne)*Ht**2.0q0* &
-             &          (-6.0q0 + phitp**2.0q0 + chitp**2.0q0)))/ &
+             &          (-6.0q0 + phitp**2.0q0 + chitp**2.0q0+zitp**2.0q0)))/ &
              &     exp(4.0q0*Ne))/(6.0q0*Ht**2.0q0)
 
 end function dphitp
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-function dchitp(Ne,Ht,phit,chit,phitp,chitp)
+function dchitp(Ne,Ht,phit,chit,zit,phitp,chitp,zitp)
 
     implicit none
 
-    real(16) :: Ne,Ht,phit,chit,phitp,chitp
-    real(16) :: dchitp
+    real(16) :: Ne,Ht,phit,chit,phitp,chitp,zit,zitp
+    real(16) :: dchitp,dzitp
 
-    real(16) :: Omegam0,Omegar0,lambdachit,phitinitial,chitinitial
-    common /inputparametersofHta2/ Omegam0,Omegar0,lambdachit, &
-            & phitinitial,chitinitial
+    real(16) :: Omegam0,Omegar0,lambdachit,lambdazit,phitinitial,chitinitial,zitinitial
+    common /inputparametersofHta2/ Omegam0,Omegar0,lambdachit, lambdazit,&
+            & phitinitial,chitinitial,zitinitial
 
     real(16) :: lambdaphit
     common /lambdaphit/ lambdaphit
@@ -876,12 +925,41 @@ function dchitp(Ne,Ht,phit,chit,phitp,chitp)
     dchitp = (-6.0q0*lambdachit*chit**3.0q0 + &
              &    (chitp*(3.0q0*exp(Ne)*rhomtinitial + 4.0q0*rhortinitial + &
              &         3.0q0*exp(4.0q0*Ne)*Ht**2.0q0* &
-             &          (-6.0q0 + phitp**2.0q0 + chitp**2.0q0)))/ &
+             &          (-6.0q0 + phitp**2.0q0 + chitp**2.0q0+zitp**2.0q0)))/ &
              &     exp(4.0q0*Ne))/(6.0q0*Ht**2.0q0)
 
 end function dchitp
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+
+function dzitp(Ne,Ht,phit,chit,zit,phitp,chitp,zitp)
+
+    implicit none
+
+    real(16) :: Ne,Ht,phit,chit,phitp,chitp,zit,zitp
+    real(16) :: dchitp,dzitp
+
+    real(16) :: Omegam0,Omegar0,lambdachit,lambdazit,phitinitial,chitinitial,zitinitial
+    common /inputparametersofHta2/ Omegam0,Omegar0,lambdachit, lambdazit,&
+            & phitinitial,chitinitial,zitinitial
+
+    real(16) :: lambdaphit
+    common /lambdaphit/ lambdaphit
+
+    real(16) :: rhomtinitial, rhortinitial
+    common /rhotinitial/ rhomtinitial, rhortinitial
+
+    dzitp = (-6.0q0*lambdazit*zit**3.0q0 + &
+             &    (zitp*(3.0q0*exp(Ne)*rhomtinitial + 4.0q0*rhortinitial + &
+             &         3.0q0*exp(4.0q0*Ne)*Ht**2.0q0* &
+             &          (-6.0q0 + phitp**2.0q0 + chitp**2.0q0+zitp**2.0q0)))/ &
+             &     exp(4.0q0*Ne))/(6.0q0*Ht**2.0q0)
+
+end function dzitp
+
+
+!!!!!!!!!!!!!!!!!!!!!
 
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 

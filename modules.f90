@@ -438,6 +438,7 @@
         write(*,'("Om_Lambda            = ",f9.6)') CP%omegav
         write(*,'("Om_K                 = ",f9.6)') CP%omegak
         write(*,'("Om_m (1-Om_K-Om_L)   = ",f9.6)') 1-CP%omegak-CP%omegav
+	write(*,'("H0                   =",f9.6)') CP%H0
         write(*,'("100 theta (CosmoMC)  = ",f9.6)') 100*CosmomcTheta()
         if (CP%Num_Nu_Massive > 0) then
             write(*,'("N_eff (total)        = ",f9.6)') nu_massless_degeneracy + &
@@ -2719,9 +2720,9 @@
     real(dl) last_dotmu
     real(dl) dtauda  !diff of tau w.CP%r.t a and integration
     external dtauda
-    real(dl) a_verydom
+    real(dl) a_verydom,zvary
     real(dl) awin_lens1p,awin_lens2p,dwing_lens, rs, DA
-    real(dl) z_eq, a_eq
+    real(dl) z_eq, a_eq,dlz,lz
     real(dl) rombint
     integer noutput
     external rombint
@@ -2991,8 +2992,25 @@
                 BackgroundOutputs%DA(i) = AngularDiameterDistance(BackgroundOutputs%z_outputs(i))
                 BackgroundOutputs%rs_by_D_v(i) = rs/BAO_D_v_from_DA_H(BackgroundOutputs%z_outputs(i), &
                     BackgroundOutputs%DA(i),BackgroundOutputs%H(i))
+            print*,BackgroundOutputs%z_outputs(i),rs,BackgroundOutputs%DA(i)
             end do
         end if
+  !For output and use in understanding EDE dynamics
+       ! /,AngularDiameterDistance(z_star)/(1/(z_star+1))
+        noutput=1000
+        dlz=(log(z_star)-log(0.0001))/real(noutput)
+        rs =rombint(dsound_da_exact,1d-8,1/(z_star+1),1d-6)
+        open(unit=11,file='background.txt')
+        ! write(11,*) ThermoDerivedParams( derived_thetastar )
+        ! close(11)
+        do i=0,noutput
+        	lz=log(0.0001)+dlz*real(i)
+        	zvary=exp(lz)
+!        zvary=(1.+z_star)*(1.+real(i))/(1.+real(noutput))-1.
+        	write(11,'(f12.6,1X,f20.10,1X,f11.5)') zvary,100*rs/(AngularDiameterDistance(zvary)/(1./(zvary+1.))),LuminosityDistance(zvary)/(zvary+1.)
+        enddo
+        close(11)
+        
 
         if (FeedbackLevel > 0) then
             write(*,'("Age of universe/GYr  = ",f7.3)') ThermoDerivedParams( derived_Age )
